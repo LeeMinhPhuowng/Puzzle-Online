@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5b8c78a8b260caf489b201d546d7e8ae
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 320837
+  packageName: First Person Camera Script
+  packageVersion: 2.0.0
+  assetPath: Assets/FirstPersonCamera/Sakanfar Productions/material/Ground.mat
+  uploadId: 916932

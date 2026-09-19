@@ -1,0 +1,143 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0caff1de35a0d7418429454aece07d8, type: 3}
+  m_Name: ocean
+  m_EditorClassIdentifier: Assembly-CSharp::PuzzleSystem.Core.PuzzleData
+  puzzleId: ocean_4x4
+  displayName: "\u0110\u1EA1i D\u01B0\u01A1ng"
+  description: "\u0110\xE0n c\xE1 nhi\u1EC7t \u0111\u1EDBi r\u1EF1c r\u1EE1 s\u1EAFc
+    m\xE0u d\u01B0\u1EDBi l\xF2ng \u0111\u1EA1i d\u01B0\u01A1ng, 16 m\u1EA3nh th\u1EED
+    th\xE1ch."
+  thumbnail: {fileID: 0}
+  price: 240
+  reward: 120
+  rows: 4
+  columns: 4
+  boardWidth: 0.8
+  boardHeight: 0.8
+  thickness: 0.005
+  sourceImage: {fileID: 2800000, guid: cb19e7656ef31dc45b542b068407c34c, type: 3}
+  puzzleMaterial: {fileID: 2100000, guid: 1ef05120402e2d04da26ca2ce64378e9, type: 2}
+  sideMaterial: {fileID: 2100000, guid: 001fdbc5e0590764ba1f25b2c80550e6, type: 2}
+  pieces:
+  - pieceId: 0
+    row: 0
+    col: 0
+    correctLocalPosition: {x: -0.3, y: 0.0025, z: 0.30000004}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 931f027b472d9114789563140fbbf5b9, type: 2}
+  - pieceId: 1
+    row: 0
+    col: 1
+    correctLocalPosition: {x: -0.099999994, y: 0.0025, z: 0.30000004}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 9da762190030e6b4980f20959bedcd41, type: 2}
+  - pieceId: 2
+    row: 0
+    col: 2
+    correctLocalPosition: {x: 0.099999994, y: 0.0025, z: 0.30000004}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 8efc9e78eab78e243956570e8e834162, type: 2}
+  - pieceId: 3
+    row: 0
+    col: 3
+    correctLocalPosition: {x: 0.30000004, y: 0.0025, z: 0.30000004}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: f1772978f846b1a438f1f2d6a91b2a3a, type: 2}
+  - pieceId: 4
+    row: 1
+    col: 0
+    correctLocalPosition: {x: -0.3, y: 0.0025, z: 0.099999994}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: bbffb34f94567114f9da14be6b5b37d4, type: 2}
+  - pieceId: 5
+    row: 1
+    col: 1
+    correctLocalPosition: {x: -0.099999994, y: 0.0025, z: 0.099999994}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: c5fa7ded76974c54382776023573b6f8, type: 2}
+  - pieceId: 6
+    row: 1
+    col: 2
+    correctLocalPosition: {x: 0.099999994, y: 0.0025, z: 0.099999994}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 4d01453c6546ac545a0a29175d0ed621, type: 2}
+  - pieceId: 7
+    row: 1
+    col: 3
+    correctLocalPosition: {x: 0.30000004, y: 0.0025, z: 0.099999994}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 60654c130241ec144a1704138ec5c612, type: 2}
+  - pieceId: 8
+    row: 2
+    col: 0
+    correctLocalPosition: {x: -0.3, y: 0.0025, z: -0.099999994}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 7134839046221dc4095802e0874d38c7, type: 2}
+  - pieceId: 9
+    row: 2
+    col: 1
+    correctLocalPosition: {x: -0.099999994, y: 0.0025, z: -0.099999994}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 34a558d668d60474dbe04a09434f3ff4, type: 2}
+  - pieceId: 10
+    row: 2
+    col: 2
+    correctLocalPosition: {x: 0.099999994, y: 0.0025, z: -0.099999994}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: c906b9ffa782de84e912c1c720cdb0c0, type: 2}
+  - pieceId: 11
+    row: 2
+    col: 3
+    correctLocalPosition: {x: 0.30000004, y: 0.0025, z: -0.099999994}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 2b1a91201a147284295fa9dead758e39, type: 2}
+  - pieceId: 12
+    row: 3
+    col: 0
+    correctLocalPosition: {x: -0.3, y: 0.0025, z: -0.3}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 77e8ac012e231bb4a998728372a8befc, type: 2}
+  - pieceId: 13
+    row: 3
+    col: 1
+    correctLocalPosition: {x: -0.099999994, y: 0.0025, z: -0.3}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 3056d94973b5c2c4ba34d6bdd9acaf11, type: 2}
+  - pieceId: 14
+    row: 3
+    col: 2
+    correctLocalPosition: {x: 0.099999994, y: 0.0025, z: -0.3}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 2c0aa3baf80eacf419f4c828926278d9, type: 2}
+  - pieceId: 15
+    row: 3
+    col: 3
+    correctLocalPosition: {x: 0.30000004, y: 0.0025, z: -0.3}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 739319ef9daa6794fb30ee9297e9ab71, type: 2}
