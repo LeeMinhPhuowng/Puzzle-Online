@@ -16,6 +16,12 @@ namespace FirstPersonCamera
         [Header("Camera Constraints")]
         [SerializeField] private float minVerticalAngle = -90f;
         [SerializeField] private float maxVerticalAngle = 90f;
+        [Header("Horizontal Clamp (180 Degrees)")]
+        [Tooltip("Giới hạn góc quay ngang 180 độ (90 độ sang trái, 90 độ sang phải từ tâm nhìn bàn)")]
+        [SerializeField] private bool clampHorizontalAngle = true;
+        [SerializeField] private float horizontalAngleRange = 180f;
+        private float centerHorizontalAngle = 0f;
+        private bool hasCenterHorizontal = false;
 
         [Header("Smoothing")]
         [Tooltip("Lower = more responsive. 0.02-0.04 feels snappy, 0.1+ feels floaty/laggy.")]
@@ -23,7 +29,8 @@ namespace FirstPersonCamera
         [Tooltip("Smoothing adds input lag. Leave OFF for raw, responsive aim.")]
         [SerializeField] private bool enableSmoothing = false;
 
-        [Header("References")]
+        [Header("Head & Body References")]
+        [SerializeField] private Transform headTransform;
         [SerializeField] private Transform playerBody;
         [SerializeField] private Camera playerCamera;
         [SerializeField] private PlayerController.PlayerController playerController;
@@ -96,9 +103,17 @@ namespace FirstPersonCamera
         private Collider[] ownColliders;
         void Start()
         {
-            // Lock cursor to center of screen and hide it
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            // Lock cursor if in gameplay, or keep unlocked if modal/menu is open
+            if (PuzzleOnline.UI.PuzzleOnlineUIManager.IsModalOrChatOpen)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
+            else
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
 
             // Auto-assign references if not set
             if (playerCamera == null)
@@ -125,10 +140,20 @@ namespace FirstPersonCamera
                 else
                     playerController = FindFirstObjectByType<PlayerController.PlayerController>();
             }
+
+            if (headTransform == null)
+            {
+                if (transform.parent != null && transform.parent != playerBody)
+                    headTransform = transform.parent;
+                else if (playerBody != null)
+                    headTransform = playerBody.Find("Head");
+            }
             // Initialize rotation values
             if (playerBody != null)
             {
                 yRotation = playerBody.eulerAngles.y;
+                centerHorizontalAngle = yRotation;
+                hasCenterHorizontal = true;
                 Debug.Log("FirstPersonCameraScript: Player Body found and assigned: " + playerBody.name);
             }
             else
@@ -146,12 +171,24 @@ namespace FirstPersonCamera
             else
                 ownColliders = new Collider[0];
 
-            // Initialize zoom values
+            // Initialize zoom values & near clip plane
             if (playerCamera != null)
             {
+                playerCamera.nearClipPlane = 0.02f;
                 normalFOV = playerCamera.fieldOfView;
                 currentFOV = normalFOV;
                 targetFOV = normalFOV;
+            }
+
+            // Khắc phục camera nhìn xuyên cơ thể: Ẩn mesh đầu, mắt và thân khỏi camera góc nhìn thứ nhất
+            // nhưng vẫn giữ bóng đổ (ShadowsOnly) để người chơi có bóng trên sàn và mặt bàn
+            if (playerBody != null)
+            {
+                var meshRenderers = playerBody.GetComponentsInChildren<MeshRenderer>(true);
+                foreach (var mr in meshRenderers)
+                {
+                    mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+                }
             }
         }
         void Update()
@@ -161,11 +198,42 @@ namespace FirstPersonCamera
             HandleCameraShake();
             HandleCursorToggle();
         }
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            IsOverheadActive = false;
+        }
+
+        private void Awake()
+        {
+            IsOverheadActive = false;
+            // Giới hạn góc quay theo phương thẳng đứng tối đa 180 độ (-89.5 đến +89.5)
+            minVerticalAngle = Mathf.Clamp(minVerticalAngle, -89.5f, 0f);
+            maxVerticalAngle = Mathf.Clamp(maxVerticalAngle, 0f, 89.5f);
+        }
+
+        private void OnValidate()
+        {
+            minVerticalAngle = Mathf.Clamp(minVerticalAngle, -89.5f, 0f);
+            maxVerticalAngle = Mathf.Clamp(maxVerticalAngle, 0f, 89.5f);
+        }
+
+        public static bool IsOverheadActive = false;
+
         private void HandleMouseLook()
         {
-            // Skip when the cursor is unlocked so menus don't yank the camera around
-            if (ignoreInputWhenCursorUnlocked && Cursor.lockState != CursorLockMode.Locked)
+            if (IsOverheadActive) return;
+
+            // Chỉ tạm dừng xoay chuột khi đang mở Menu, Modal hoặc Chat
+            if (PuzzleOnline.UI.PuzzleOnlineUIManager.IsModalOrChatOpen)
                 return;
+
+            // Tự động khóa chuột khi đang trong gameplay nếu trước đó chưa khóa
+            if (Cursor.lockState != CursorLockMode.Locked)
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
 
             // Mouse axes are already per-frame deltas; do NOT multiply by Time.deltaTime,
             // otherwise sensitivity becomes frame-rate dependent.
@@ -194,6 +262,13 @@ namespace FirstPersonCamera
 
             // Horizontal rotation (Y axis) - rotates the player body
             yRotation += mouseX;
+            if (clampHorizontalAngle && hasCenterHorizontal)
+            {
+                float halfRange = horizontalAngleRange * 0.5f;
+                float delta = Mathf.DeltaAngle(centerHorizontalAngle, yRotation);
+                float clampedDelta = Mathf.Clamp(delta, -halfRange, halfRange);
+                yRotation = centerHorizontalAngle + clampedDelta;
+            }
 
             // Vertical rotation (X axis) - rotates the camera
             xRotation -= mouseY;
@@ -210,11 +285,58 @@ namespace FirstPersonCamera
                 transform.rotation = Quaternion.Euler(xRotation, yRotation, 0f);
                 return;
             }
-            transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+
+            if (headTransform != null)
+            {
+                headTransform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+                transform.localRotation = Quaternion.identity;
+            }
+            else
+            {
+                transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+            }
+
+            PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendLook(yRotation, xRotation);
+        }
+
+        public void SetLookRotation(float yaw, float pitch)
+        {
+            yRotation = yaw;
+            centerHorizontalAngle = yaw;
+            hasCenterHorizontal = true;
+            xRotation = Mathf.Clamp(pitch, minVerticalAngle, maxVerticalAngle);
+            if (playerBody != null)
+            {
+                playerBody.rotation = Quaternion.Euler(0f, yRotation, 0f);
+            }
+            else
+            {
+                transform.rotation = Quaternion.Euler(xRotation, yRotation, 0f);
+                return;
+            }
+
+            if (headTransform != null)
+            {
+                headTransform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+                transform.localRotation = Quaternion.identity;
+            }
+            else
+            {
+                transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+            }
+
+            PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendLook(yRotation, xRotation);
+        }
+
+        public void SetCenterHorizontalAngle(float yaw)
+        {
+            centerHorizontalAngle = yaw;
+            hasCenterHorizontal = true;
         }
 
         private void LateUpdate()
         {
+            if (IsOverheadActive) return;
             // Apply camera shake + wall collision to local position
             ApplyCameraPosition();
         }
@@ -279,8 +401,8 @@ namespace FirstPersonCamera
         }
         private void HandleZoom()
         {
-            // Check if aiming
-            isAiming = Input.GetKey(aimKey);
+            // Check if aiming (chỉ cho phép zoom khi chuột đang bị khóa vào góc nhìn thứ nhất)
+            isAiming = Input.GetKey(aimKey) && (!ignoreInputWhenCursorUnlocked || Cursor.lockState == CursorLockMode.Locked);
 
             // Check if running (from PlayerController)
             bool isPlayerRunning = playerController != null && playerController.IsRunning();
@@ -384,6 +506,15 @@ namespace FirstPersonCamera
 
         private void HandleCursorToggle()
         {
+            // Trong ván online, PuzzleOnlineUIManager là nơi duy nhất quản lý
+            // Esc và cursor. Nếu camera cũng xử lý click/Esc, nó sẽ khóa chuột
+            // trước khi các nút menu IMGUI nhận được sự kiện click.
+            if (PuzzleOnline.Network.PuzzleNetworkManager.Instance != null &&
+                PuzzleOnline.Network.PuzzleNetworkManager.Instance.IsGameActive)
+            {
+                return;
+            }
+
             // Toggle cursor lock with Escape key
             if (Input.GetKeyDown(KeyCode.Escape))
             {
@@ -398,6 +529,22 @@ namespace FirstPersonCamera
                     Cursor.visible = false;
                 }
             }
+
+            // Click chuột trái vào màn hình để khóa chuột (nếu không mở Menu/Chat/Modal)
+            if (Input.GetMouseButtonDown(0) && Cursor.lockState != CursorLockMode.Locked)
+            {
+                if (!PuzzleOnline.UI.PuzzleOnlineUIManager.IsModalOrChatOpen)
+                {
+                    Cursor.lockState = CursorLockMode.Locked;
+                    Cursor.visible = false;
+                }
+            }
+        }
+
+        public static void SetCursorLock(bool locked)
+        {
+            Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
+            Cursor.visible = !locked;
         }
 
         // Public methods for external control
@@ -409,8 +556,8 @@ namespace FirstPersonCamera
 
         public void SetVerticalLimits(float minAngle, float maxAngle)
         {
-            minVerticalAngle = minAngle;
-            maxVerticalAngle = maxAngle;
+            minVerticalAngle = Mathf.Clamp(minAngle, -89.5f, 0f);
+            maxVerticalAngle = Mathf.Clamp(maxAngle, 0f, 89.5f);
         }
 
         public void ResetRotation()

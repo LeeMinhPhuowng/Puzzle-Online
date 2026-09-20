@@ -6,8 +6,17 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/SCN_MainMenu.unity
+    guid: bc23eeb4bfecc754382aac1dde86fb3a
+  - enabled: 1
+    path: Assets/Scenes/SCN_Nature.unity
+    guid: ffb518b8a8a1789428271ff2edd110e0
+  - enabled: 1
     path: Assets/Scenes/SCN_Classroom.unity
     guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 1
+    path: Assets/Scenes/SCN_Sakura.unity
+    guid: 078e5c37ad970624983ad3d04d8a4c07
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

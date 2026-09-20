@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections.Generic;
 using PuzzleSystem.Core;
 
@@ -15,6 +15,14 @@ namespace PuzzleSystem.Gameplay
         [SerializeField] private PuzzleData defaultPuzzle;
 
         private readonly Dictionary<string, PuzzleData> catalog = new Dictionary<string, PuzzleData>();
+
+#if UNITY_EDITOR
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStaticState()
+        {
+            Instance = null;
+        }
+#endif
 
         private void Awake()
         {

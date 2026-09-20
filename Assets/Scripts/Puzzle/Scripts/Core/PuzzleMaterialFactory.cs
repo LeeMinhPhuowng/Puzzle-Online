@@ -51,6 +51,31 @@ namespace PuzzleSystem.Core
             return mat;
         }
 
+        public static Material CreateGhostGuideMaterial(Texture2D texture, float opacity = 0.28f)
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Unlit/Transparent");
+            if (shader == null) shader = Shader.Find("Transparent/Diffuse");
+            if (shader == null) shader = GetLitShader();
+
+            Material mat = new Material(shader) { name = "Mat_PuzzleGhostGuide" };
+            Color col = new Color(1f, 1f, 1f, opacity);
+
+            if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", texture);
+            if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", texture);
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", col);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", col);
+
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f); // 1 = Transparent in URP
+            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f); // 0 = Alpha blend
+            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetInt("_ZWrite", 0);
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+            return mat;
+        }
+
 #if UNITY_EDITOR
         /// <summary>
         /// Tạo và lưu file Material (.mat) trực tiếp vào thư mục Asset để Prefab không bị rỗng Material.

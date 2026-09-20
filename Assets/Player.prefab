@@ -381,10 +381,13 @@ MonoBehaviour:
   mouseSensitivityY: 5
   invertMouseY: 0
   ignoreInputWhenCursorUnlocked: 1
-  minVerticalAngle: -180
-  maxVerticalAngle: 180
+  minVerticalAngle: -89
+  maxVerticalAngle: 89
+  clampHorizontalAngle: 0
+  horizontalAngleRange: 180
   smoothTime: 0.02
   enableSmoothing: 0
+  headTransform: {fileID: 0}
   playerBody: {fileID: 2505063152288684298}
   playerCamera: {fileID: 7987793999712796781}
   playerController: {fileID: 8795787086320747049}
@@ -580,6 +583,7 @@ MonoBehaviour:
   decelerationTime: 0.1
   runKey: 304
   jumpKey: 32
+  lockPositionAtSeat: 1
 --- !u!1 &8312529063897131502
 GameObject:
   m_ObjectHideFlags: 0

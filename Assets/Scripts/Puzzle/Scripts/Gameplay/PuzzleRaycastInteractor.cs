@@ -7,7 +7,7 @@ namespace PuzzleSystem.Gameplay
         [Header("Camera & Raycast Settings")]
         [Tooltip("Camera chính dùng để raycast (nếu để trống sẽ lấy Camera.main)")]
         public Camera playerCamera;
-        public float maxInteractDistance = 4f;
+        public float maxInteractDistance = 6f;
         public LayerMask pieceLayer = ~0;
 
         [Header("Pick & Place Parameters")]
@@ -36,6 +36,15 @@ namespace PuzzleSystem.Gameplay
         {
             if (playerCamera == null) return;
 
+            if (PuzzleOnline.UI.PuzzleOnlineUIManager.IsModalOrChatOpen)
+            {
+                if (heldPiece != null)
+                {
+                    ReleasePiece();
+                }
+                return;
+            }
+
             // Xử lý bắt đầu cầm mảnh ghép
             if (Input.GetMouseButtonDown(0))
             {
@@ -49,15 +58,24 @@ namespace PuzzleSystem.Gameplay
                 if (Input.GetKeyDown(rotateKey))
                 {
                     targetWorldRot *= Quaternion.Euler(0f, 90f, 0f);
+                    PuzzleOnline.Audio.PuzzleAudioService.Instance?.PlayRotate();
                 }
                 else if (allowScrollWheelRotation && Mathf.Abs(Input.mouseScrollDelta.y) > 0.1f)
                 {
                     float angle = Input.mouseScrollDelta.y > 0 ? 90f : -90f;
                     targetWorldRot *= Quaternion.Euler(0f, angle, 0f);
+                    PuzzleOnline.Audio.PuzzleAudioService.Instance?.PlayRotate();
                 }
 
                 // Cập nhật vị trí kéo rê theo mặt phẳng bàn
                 UpdateHeldPosition();
+
+                // Đồng bộ vị trí mạng theo nhịp 20Hz
+                if (Time.unscaledTime - lastNetworkSyncTime >= 0.05f)
+                {
+                    lastNetworkSyncTime = Time.unscaledTime;
+                    SendHeldPieceNetworkUpdate();
+                }
 
                 // Thả mảnh ghép
                 if (Input.GetMouseButtonUp(0))
@@ -67,16 +85,31 @@ namespace PuzzleSystem.Gameplay
             }
         }
 
+        private float lastNetworkSyncTime;
+
+        private void SendHeldPieceNetworkUpdate()
+        {
+            if (heldPiece == null) return;
+            Vector3 local = heldPiece.transform.localPosition;
+            int rot = Mathf.RoundToInt(heldPiece.transform.localEulerAngles.y);
+            PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendMovePiece(heldPiece.pieceId, local.x, local.z, rot);
+        }
+
         private void TryPickupPiece()
         {
             Ray ray = GetInteractionRay();
-            if (Physics.Raycast(ray, out RaycastHit hit, maxInteractDistance, pieceLayer))
+            RaycastHit[] hits = Physics.RaycastAll(ray, maxInteractDistance, pieceLayer);
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            foreach (var hit in hits)
             {
                 PuzzlePiece piece = hit.collider.GetComponentInParent<PuzzlePiece>();
-                if (piece != null && !piece.isPlaced)
+                if (piece != null && !piece.isPlaced && !piece.isRemoteControlled)
                 {
                     heldPiece = piece;
                     heldPiece.SetHeld(true);
+                    PuzzleOnline.Audio.PuzzleAudioService.Instance?.PlayPick();
+                    PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendLockPiece(piece.pieceId);
 
                     // Thiết lập mặt phẳng di chuyển theo phương ngang tại độ cao nhấc bổng
                     Transform board = piece.transform.parent;
@@ -85,6 +118,7 @@ namespace PuzzleSystem.Gameplay
                     targetWorldPos = piece.transform.position;
                     targetWorldPos.y = planeY;
                     targetWorldRot = piece.transform.rotation;
+                    break;
                 }
             }
         }
@@ -92,9 +126,16 @@ namespace PuzzleSystem.Gameplay
         private void UpdateHeldPosition()
         {
             Ray ray = GetInteractionRay();
-            if (tablePlane.Raycast(ray, out float enter))
+            if (tablePlane.Raycast(ray, out float enter) && enter > 0f)
             {
                 targetWorldPos = ray.GetPoint(enter);
+            }
+
+            // Giới hạn trong viền mép bàn (để mảnh không thể văng rơi ra ngoài bàn)
+            var board = heldPiece.GetComponentInParent<PuzzleBoard>();
+            if (board != null)
+            {
+                targetWorldPos = board.ClampToTableBounds(targetWorldPos, 0.05f);
             }
 
             // Di chuyển mượt về targetWorldPos
@@ -121,22 +162,32 @@ namespace PuzzleSystem.Gameplay
             releasing.SetHeld(false);
 
             // Kiểm tra hút vào vị trí đúng trên bàn cờ
-            if (!releasing.TrySnap(snapDistanceTolerance, snapAngleTolerance))
+            bool snapped = releasing.TrySnap(snapDistanceTolerance, snapAngleTolerance);
+            if (!snapped)
             {
                 // Nếu chưa khớp, hạ mảnh chạm về độ cao phẳng chuẩn của mặt bàn cờ (không bao giờ trừ âm làm chìm đất)
                 Transform board = releasing.transform.parent;
                 if (board != null)
                 {
                     Vector3 local = releasing.transform.localPosition;
-                    local.y = releasing.correctLocalPos.y;
+                    local.y = releasing.correctLocalPos.y + (releasing.pieceId * 0.0003f);
                     releasing.transform.localPosition = local;
+                    int rot = Mathf.RoundToInt(releasing.transform.localEulerAngles.y);
+                    PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendReleasePiece(releasing.pieceId, local.x, local.z, rot);
                 }
                 else
                 {
                     Vector3 p = releasing.transform.position;
                     p.y -= liftHeight;
                     releasing.transform.position = p;
+                    PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendReleasePiece(releasing.pieceId, 0f, 0f, 0);
                 }
+            }
+            else
+            {
+                Vector3 local = releasing.transform.localPosition;
+                int rot = Mathf.RoundToInt(releasing.transform.localEulerAngles.y);
+                PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendPlacePiece(releasing.pieceId, local.x, local.z, rot);
             }
         }
 

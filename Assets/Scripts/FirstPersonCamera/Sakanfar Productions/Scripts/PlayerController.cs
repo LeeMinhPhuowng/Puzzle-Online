@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 
@@ -28,6 +30,16 @@ namespace PlayerController // Or any other appropriate namespace
         // Components
         private CharacterController controller;
 
+        [Header("Seat & Position Settings")]
+        [Tooltip("Cố định vị trí tại ghế ngồi (không di chuyển WASD, chỉ xoay chuột và tương tác)")]
+        [SerializeField] private bool lockPositionAtSeat = true;
+
+        public bool LockPositionAtSeat
+        {
+            get => lockPositionAtSeat;
+            set => lockPositionAtSeat = value;
+        }
+
         // Movement variables
         private Vector3 velocity;
         private bool isGrounded;
@@ -51,10 +63,80 @@ namespace PlayerController // Or any other appropriate namespace
                 groundCheckObj.transform.localPosition = new Vector3(0, -controller.height / 2, 0);
                 groundCheck = groundCheckObj.transform;
             }
+
+            StartCoroutine(SnapToMultiplayerSeat());
+        }
+
+        /// <summary>
+        /// The player prefab can be present before PuzzleBoard is initialized (or
+        /// when a scene is tested directly in the editor).  Make seating owned by
+        /// the player itself so its editor placement can never become its in-game
+        /// spawn point.
+        /// </summary>
+        private IEnumerator SnapToMultiplayerSeat()
+        {
+            yield return null;
+            yield return new WaitForEndOfFrame();
+
+            var positions = GameObject.Find("Positions") ?? GameObject.Find("positions");
+            if (positions == null)
+            {
+                Debug.LogWarning("[PlayerController] Không tìm thấy object 'Positions'; giữ nguyên vị trí Player.");
+                yield break;
+            }
+
+            var seats = new List<Transform>();
+            for (int number = 1; number <= 4; number++)
+            {
+                var seat = positions.transform.Find($"Position ({number})");
+                if (seat != null) seats.Add(seat);
+            }
+
+            if (seats.Count == 0)
+            {
+                Debug.LogWarning("[PlayerController] 'Positions' không có Position (1) đến Position (4).");
+                yield break;
+            }
+
+            int slotIndex = 0;
+            var network = PuzzleOnline.Network.PuzzleNetworkManager.Instance;
+            if (network != null && network.RoomPlayers.Count > 0)
+            {
+                for (int i = 0; i < network.RoomPlayers.Count; i++)
+                {
+                    if (network.RoomPlayers[i].Username == network.Username)
+                    {
+                        slotIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            Transform targetSeat = seats[slotIndex % seats.Count];
+            Vector3 lookDirection = positions.transform.position - targetSeat.position;
+            lookDirection.y = 0f;
+            Quaternion targetRotation = lookDirection.sqrMagnitude > 0.001f
+                ? Quaternion.LookRotation(lookDirection.normalized, Vector3.up)
+                : targetSeat.rotation;
+
+            TeleportTo(targetSeat.position, targetRotation);
+            Debug.Log($"[PlayerController] Đã đặt Player vào {targetSeat.name} (slot {slotIndex + 1}).");
+        }
+
+        public void TeleportTo(Vector3 targetPosition, Quaternion targetRotation)
+        {
+            if (controller == null) controller = GetComponent<CharacterController>();
+            if (controller != null) controller.enabled = false;
+            transform.position = targetPosition;
+            transform.rotation = targetRotation;
+            if (controller != null) controller.enabled = true;
         }
 
         void Update()
         {
+            if (FirstPersonCamera.FirstPersonCameraScript.IsOverheadActive) return;
+            if (lockPositionAtSeat) return;
+
             HandleGroundCheck();
             HandleInput();
             HandleMovement();

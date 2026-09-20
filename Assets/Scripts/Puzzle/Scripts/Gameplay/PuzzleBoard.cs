@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using PuzzleSystem.Core;
@@ -35,26 +36,22 @@ namespace PuzzleSystem.Gameplay
         public event Action<float> OnProgressChanged; // Trả về tỉ lệ hoàn thành 0.0 -> 1.0
         public event Action OnPuzzleCompleted;
 
+        private string loadedPuzzleId = "";
+        private Bounds cachedTableBounds;
+        private bool hasTableBounds = false;
+
+        private void Awake()
+        {
+            playerPositioned = false;
+            hasInitializedCamera = false;
+            loadedPuzzleId = "";
+        }
+
         private void Start()
         {
-            // Đảm bảo PuzzleBoard luôn ở cấp Root và có scale chuẩn (1,1,1)
-            if (transform.parent != null)
-            {
-                transform.SetParent(null, true);
-                transform.localScale = Vector3.one;
-            }
-
             AutoDetectSceneEnvironment();
             EnsureCameraInteractor();
-
-            // Tự động nắn thẳng góc xoay nằm ngang phẳng nếu bàn cờ đang bị nghiêng (do kế thừa góc nghiêng -90 độ trục X của mô hình bàn)
-            if (Vector3.Angle(transform.up, Vector3.up) > 0.5f)
-            {
-                Vector3 fwd = transform.forward;
-                fwd.y = 0f;
-                if (fwd.sqrMagnitude < 0.001f) fwd = Vector3.forward;
-                transform.rotation = Quaternion.LookRotation(fwd.normalized, Vector3.up);
-            }
+            PositionLocalPlayer();
 
             // Nếu trong cảnh đã có sẵn các mảnh ghép (ví dụ người dùng kéo Prefab ra hoặc tự xếp)
             if (activePieces == null || activePieces.Count == 0)
@@ -73,6 +70,240 @@ namespace PuzzleSystem.Gameplay
                     UpdateProgress();
                 }
             }
+
+            // Đồng bộ bộ xếp hình từ Multiplayer Network Manager nếu đang trong ván chơi mạng
+            if (PuzzleOnline.Network.PuzzleNetworkManager.Instance != null &&
+                PuzzleOnline.Network.PuzzleNetworkManager.Instance.IsGameActive)
+            {
+                if (!PuzzleOnline.UI.PuzzleOnlineUIManager.IsModalOrChatOpen)
+                {
+                    Cursor.lockState = CursorLockMode.Locked;
+                    Cursor.visible = false;
+                }
+                PositionLocalPlayer(true);
+                SyncRemotePlayerAvatars();
+
+                string netPuzzleId = PuzzleOnline.Network.PuzzleNetworkManager.Instance.CurrentPuzzleId;
+                if (!string.IsNullOrEmpty(netPuzzleId))
+                {
+                    if (activePieces == null || activePieces.Count == 0 || loadedPuzzleId != netPuzzleId)
+                    {
+                        LoadPuzzle(netPuzzleId, true);
+                    }
+                    SyncPiecesFromServer();
+                }
+            }
+
+            // Scene objects are initialized in an unspecified order.  Run one
+            // more forced placement after the Player prefab has completed Start
+            // so a manually placed Player cannot remain at its editor position.
+            StartCoroutine(PositionLocalPlayerAfterSceneSetup());
+        }
+
+        private IEnumerator PositionLocalPlayerAfterSceneSetup()
+        {
+            yield return null;
+            PositionLocalPlayer(true);
+
+            yield return new WaitForEndOfFrame();
+            PositionLocalPlayer(true);
+        }
+
+        private void OnEnable()
+        {
+            if (PuzzleOnline.Network.PuzzleNetworkManager.Instance != null)
+            {
+                var net = PuzzleOnline.Network.PuzzleNetworkManager.Instance;
+                net.OnPieceLockedEvent += HandleRemotePieceLocked;
+                net.OnPieceMovedEvent += HandleRemotePieceMoved;
+                net.OnPiecePlacedEvent += HandleRemotePiecePlaced;
+                net.OnPieceReleasedEvent += HandleRemotePieceReleased;
+                net.OnGameCompleteEvent += HandleRemoteGameComplete;
+                net.OnGameStarted += HandleGameStarted;
+                net.OnGameUpdated += HandleGameUpdated;
+                net.OnPlayerLookReceived += HandleRemotePlayerLook;
+                net.OnRoomUpdated += HandleRoomUpdatedAvatars;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (PuzzleOnline.Network.PuzzleNetworkManager.Instance != null)
+            {
+                var net = PuzzleOnline.Network.PuzzleNetworkManager.Instance;
+                net.OnPieceLockedEvent -= HandleRemotePieceLocked;
+                net.OnPieceMovedEvent -= HandleRemotePieceMoved;
+                net.OnPiecePlacedEvent -= HandleRemotePiecePlaced;
+                net.OnPieceReleasedEvent -= HandleRemotePieceReleased;
+                net.OnGameCompleteEvent -= HandleRemoteGameComplete;
+                net.OnGameStarted -= HandleGameStarted;
+                net.OnGameUpdated -= HandleGameUpdated;
+                net.OnPlayerLookReceived -= HandleRemotePlayerLook;
+                net.OnRoomUpdated -= HandleRoomUpdatedAvatars;
+            }
+            ClearRemotePlayerAvatars();
+            loadedPuzzleId = "";
+            playerPositioned = false;
+            hasInitializedCamera = false;
+        }
+
+        private void HandleRoomUpdatedAvatars()
+        {
+            SyncRemotePlayerAvatars();
+        }
+
+        private void HandleGameStarted()
+        {
+            if (!PuzzleOnline.UI.PuzzleOnlineUIManager.IsModalOrChatOpen)
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
+            PositionLocalPlayer(false);
+            SyncRemotePlayerAvatars();
+
+            if (PuzzleOnline.Network.PuzzleNetworkManager.Instance == null) return;
+            string netPuzzleId = PuzzleOnline.Network.PuzzleNetworkManager.Instance.CurrentPuzzleId;
+            if (!string.IsNullOrEmpty(netPuzzleId))
+            {
+                if (activePieces == null || activePieces.Count == 0 || loadedPuzzleId != netPuzzleId)
+                {
+                    LoadPuzzle(netPuzzleId, true);
+                }
+                SyncPiecesFromServer();
+            }
+        }
+
+        private void HandleGameUpdated()
+        {
+            SyncRemotePlayerAvatars();
+
+            if (PuzzleOnline.Network.PuzzleNetworkManager.Instance != null &&
+                PuzzleOnline.Network.PuzzleNetworkManager.Instance.IsGameActive &&
+                !PuzzleOnline.UI.PuzzleOnlineUIManager.IsModalOrChatOpen &&
+                Cursor.lockState != CursorLockMode.Locked)
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
+
+            string netPuzzleId = PuzzleOnline.Network.PuzzleNetworkManager.Instance?.CurrentPuzzleId;
+            if (!string.IsNullOrEmpty(netPuzzleId) &&
+                (activePieces == null || activePieces.Count == 0 || loadedPuzzleId != netPuzzleId))
+            {
+                LoadPuzzle(netPuzzleId, true);
+                SyncPiecesFromServer();
+            }
+            else
+            {
+                SyncPiecesFromServer();
+            }
+        }
+
+        public void SyncPiecesFromServer()
+        {
+            if (PuzzleOnline.Network.PuzzleNetworkManager.Instance == null) return;
+            var serverPieces = PuzzleOnline.Network.PuzzleNetworkManager.Instance.ActivePieces;
+
+            foreach (var piece in activePieces)
+            {
+                if (piece == null) continue;
+                if (piece.isBeingHeld) continue;
+
+                if (serverPieces.TryGetValue(piece.pieceId, out var info))
+                {
+                    if (info.Placed)
+                    {
+                        piece.SnapToTarget();
+                    }
+                    else
+                    {
+                        piece.isPlaced = false;
+                        if (!string.IsNullOrEmpty(info.LockedBy))
+                        {
+                            piece.SetRemoteLock(info.LockedBy);
+                        }
+                        else
+                        {
+                            piece.SetRemoteLock("");
+                            // ĐỒNG BỘ VỊ TRÍ TỨC THỜI CHO CÁC MẢNH ĐÃ RẢI HOẶC THẢ TRÊN MẶT BÀN
+                            Vector3 targetPos = new Vector3(info.X, piece.correctLocalPos.y + (piece.pieceId * 0.0003f), info.Y);
+                            Quaternion targetRot = Quaternion.Euler(0f, info.Rotation, 0f);
+                            if (Vector3.Distance(piece.transform.localPosition, targetPos) > 0.003f)
+                            {
+                                piece.SetRemoteTarget(targetPos, targetRot);
+                            }
+                        }
+                    }
+                }
+            }
+
+            placedCount = 0;
+            foreach (var p in activePieces)
+            {
+                if (p != null && p.isPlaced) placedCount++;
+            }
+            UpdateProgress();
+        }
+
+        private PuzzlePiece FindPiece(int pieceId)
+        {
+            return activePieces.Find(p => p.pieceId == pieceId);
+        }
+
+        private void HandleRemotePieceLocked(int pieceId, string lockedBy)
+        {
+            var piece = FindPiece(pieceId);
+            if (piece != null)
+            {
+                piece.SetRemoteLock(lockedBy);
+            }
+        }
+
+        private void HandleRemotePieceMoved(int pieceId, float x, float y, int rot)
+        {
+            var piece = FindPiece(pieceId);
+            if (piece != null && !piece.isBeingHeld)
+            {
+                Vector3 targetPos = new Vector3(x, piece.correctLocalPos.y + (piece.pieceId * 0.0003f), y);
+                Quaternion targetRot = Quaternion.Euler(0f, rot, 0f);
+                piece.SetRemoteTarget(targetPos, targetRot);
+            }
+        }
+
+        private void HandleRemotePiecePlaced(int pieceId, float x, float y, int rot, string placedBy)
+        {
+            var piece = FindPiece(pieceId);
+            if (piece != null)
+            {
+                piece.SetRemoteLock("");
+                if (!piece.isPlaced)
+                {
+                    piece.SnapToTarget();
+                }
+            }
+        }
+
+        private void HandleRemotePieceReleased(int pieceId, float x, float y, int rot)
+        {
+            var piece = FindPiece(pieceId);
+            if (piece != null)
+            {
+                piece.SetRemoteLock("");
+                if (!piece.isPlaced && !piece.isBeingHeld)
+                {
+                    Vector3 targetPos = new Vector3(x, piece.correctLocalPos.y + (piece.pieceId * 0.0003f), y);
+                    Quaternion targetRot = Quaternion.Euler(0f, rot, 0f);
+                    piece.SetRemoteTarget(targetPos, targetRot);
+                }
+            }
+        }
+
+        private void HandleRemoteGameComplete(string winner, int bonus)
+        {
+            isCompleted = true;
+            PuzzleOnline.Audio.PuzzleAudioService.Instance?.PlayComplete();
+            OnPuzzleCompleted?.Invoke();
         }
 
         /// <summary>
@@ -185,41 +416,108 @@ namespace PuzzleSystem.Gameplay
                 ? new Vector3(tableBounds.center.x, topY + 0.002f, tableBounds.center.z)
                 : new Vector3(tableTransform.position.x, topY + 0.002f, tableTransform.position.z);
 
+            cachedTableBounds = tableBounds;
+            hasTableBounds = foundBounds;
+
             transform.position = centerPos;
 
-            // 2. Góc xoay: Giữ vector Up hướng thẳng đứng lên trời, chỉ nhận góc quay ngang (Yaw) quanh trục Y
-            Vector3 fwd = tableTransform.forward;
-            fwd.y = 0f;
-            if (fwd.sqrMagnitude > 0.001f)
+            // Giữ nguyên rotation đã thiết lập trong scene/prefab. Mỗi môi trường
+            // có thể xoay PuzzleBoard khác nhau để khớp với mặt bàn của nó.
+
+            // Khởi tạo 4 thành chắn BoxCollider vô hình quanh 4 mép bàn
+            SetupTableEdgeColliders();
+        }
+
+        /// <summary>
+        /// Giữ vị trí trong phạm vi an toàn của mặt bàn (không cho mảnh trượt văng ra ngoài mép bàn).
+        /// </summary>
+        public Vector3 ClampToTableBounds(Vector3 worldPos, float margin = 0.05f)
+        {
+            if (hasTableBounds)
             {
-                transform.rotation = Quaternion.LookRotation(fwd.normalized, Vector3.up);
+                worldPos.x = Mathf.Clamp(worldPos.x, cachedTableBounds.min.x + margin, cachedTableBounds.max.x - margin);
+                worldPos.z = Mathf.Clamp(worldPos.z, cachedTableBounds.min.z + margin, cachedTableBounds.max.z - margin);
             }
-            else
+            return worldPos;
+        }
+
+        /// <summary>
+        /// Tạo 4 thành chắn BoxCollider vô hình quanh mép bàn để chặn vật lý / kéo mảnh.
+        /// </summary>
+        public void SetupTableEdgeColliders()
+        {
+            if (!hasTableBounds) return;
+
+            Transform existing = transform.Find("[TableEdgeColliders]");
+            if (existing != null)
             {
-                transform.rotation = Quaternion.identity;
+                if (Application.isPlaying) Destroy(existing.gameObject);
+                else DestroyImmediate(existing.gameObject);
             }
+
+            GameObject container = new GameObject("[TableEdgeColliders]");
+            container.transform.SetParent(transform, true);
+
+            float wallThickness = 0.08f;
+            float wallHeight = 0.8f;
+            float centerY = cachedTableBounds.max.y + (wallHeight * 0.5f);
+
+            // 4 bức tường vô hình quanh 4 mép bàn:
+            // 1. Phía Bắc (+Z)
+            CreateInvisibleWall(container.transform, "Wall_North",
+                new Vector3(cachedTableBounds.center.x, centerY, cachedTableBounds.max.z + wallThickness * 0.5f),
+                new Vector3(cachedTableBounds.size.x + wallThickness * 2f, wallHeight, wallThickness));
+
+            // 2. Phía Nam (-Z)
+            CreateInvisibleWall(container.transform, "Wall_South",
+                new Vector3(cachedTableBounds.center.x, centerY, cachedTableBounds.min.z - wallThickness * 0.5f),
+                new Vector3(cachedTableBounds.size.x + wallThickness * 2f, wallHeight, wallThickness));
+
+            // 3. Phía Đông (+X)
+            CreateInvisibleWall(container.transform, "Wall_East",
+                new Vector3(cachedTableBounds.max.x + wallThickness * 0.5f, centerY, cachedTableBounds.center.z),
+                new Vector3(wallThickness, wallHeight, cachedTableBounds.size.z + wallThickness * 2f));
+
+            // 4. Phía Tây (-X)
+            CreateInvisibleWall(container.transform, "Wall_West",
+                new Vector3(cachedTableBounds.min.x - wallThickness * 0.5f, centerY, cachedTableBounds.center.z),
+                new Vector3(wallThickness, wallHeight, cachedTableBounds.size.z + wallThickness * 2f));
+        }
+
+        private void CreateInvisibleWall(Transform parent, string name, Vector3 worldCenter, Vector3 size)
+        {
+            GameObject wall = new GameObject(name);
+            wall.transform.SetParent(parent, true);
+            wall.transform.position = worldCenter;
+            wall.transform.rotation = Quaternion.identity;
+            var box = wall.AddComponent<BoxCollider>();
+            box.size = size;
         }
 
         private void EnsureCameraInteractor()
         {
             Camera cam = Camera.main ?? FindFirstObjectByType<Camera>();
-            if (cam != null && cam.GetComponent<PuzzleRaycastInteractor>() == null)
+            if (cam != null)
             {
-                cam.gameObject.AddComponent<PuzzleRaycastInteractor>();
+                if (cam.GetComponent<PuzzleRaycastInteractor>() == null)
+                    cam.gameObject.AddComponent<PuzzleRaycastInteractor>();
+                if (cam.GetComponent<PuzzleOverheadViewController>() == null)
+                    cam.gameObject.AddComponent<PuzzleOverheadViewController>();
             }
         }
 
         private void Update()
         {
-            if (!enableQuickTestKeys) return;
-
-            if (Input.GetKeyDown(KeyCode.Alpha1)) LoadPuzzle("sunset_3x3");
-            else if (Input.GetKeyDown(KeyCode.Alpha2)) LoadPuzzle("forest_4x3");
-            else if (Input.GetKeyDown(KeyCode.Alpha3)) LoadPuzzle("ocean_4x4");
+            // Phím 1, 2, 3 đã được tắt hoàn toàn để tránh làm hỏng ván chơi phòng đã tạo
         }
+
+        private bool playerPositioned = false;
+        private bool hasInitializedCamera = false;
 
         public void AutoDetectSceneEnvironment()
         {
+            var positionsParent = GameObject.Find("Positions") ?? GameObject.Find("positions");
+
             if (tableTransform == null)
             {
                 string[] tableCandidateNames = { "Plane (1)", "PicnicTable", "Table", "Desk", "Plane" };
@@ -232,18 +530,294 @@ namespace PuzzleSystem.Gameplay
                         break;
                     }
                 }
+
+                // Some environment prefabs (currently Sakura) do not expose the
+                // tabletop as a separately named GameObject.  The Positions root
+                // is authored at the table centre, so it is a stable board anchor.
+                if (tableTransform == null && positionsParent != null)
+                {
+                    tableTransform = positionsParent.transform;
+                }
             }
 
             if (chairTransforms == null || chairTransforms.Count == 0)
             {
                 chairTransforms = new List<Transform>();
-                string[] chairNames = { "A", "A (1)", "A (2)", "A (3)", "Position (1)", "Position (2)", "Position (3)", "Position (4)" };
-                foreach (var name in chairNames)
+
+                // 1. Ưu tiên tìm GameObject cha mang tên 'Positions' trong Scene
+                if (positionsParent != null && positionsParent.transform.childCount > 0)
                 {
-                    var foundChair = GameObject.Find(name);
-                    if (foundChair != null) chairTransforms.Add(foundChair.transform);
+                    for (int i = 0; i < positionsParent.transform.childCount; i++)
+                    {
+                        chairTransforms.Add(positionsParent.transform.GetChild(i));
+                    }
+                }
+
+                // 2. Tìm theo danh sách tên riêng lẻ nếu chưa tìm thấy
+                if (chairTransforms.Count == 0)
+                {
+                    string[] chairNames = { "Position (1)", "Position (2)", "Position (3)", "Position (4)", "A", "A (1)", "A (2)", "A (3)" };
+                    foreach (var name in chairNames)
+                    {
+                        var foundChair = GameObject.Find(name);
+                        if (foundChair != null) chairTransforms.Add(foundChair.transform);
+                    }
+                }
+
+                // Sắp xếp thứ tự tự nhiên (Position (1), Position (2)...)
+                chairTransforms.Sort((a, b) =>
+                {
+                    int na = ExtractNumber(a.name);
+                    int nb = ExtractNumber(b.name);
+                    if (na != nb) return na.CompareTo(nb);
+                    return string.Compare(a.name, b.name, StringComparison.OrdinalIgnoreCase);
+                });
+            }
+        }
+
+        private static int ExtractNumber(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return 0;
+            var match = System.Text.RegularExpressions.Regex.Match(s, @"\d+");
+            if (match.Success && int.TryParse(match.Value, out int val))
+                return val;
+            return 0;
+        }
+
+        public void PositionLocalPlayer(bool force = false)
+        {
+            if (playerPositioned && !force) return;
+
+            AutoDetectSceneEnvironment();
+
+            // Tìm Player GameObject trong scene
+            GameObject playerObj = null;
+            var pc = FindFirstObjectByType<PlayerController.PlayerController>();
+            if (pc != null)
+            {
+                playerObj = pc.gameObject;
+            }
+            else
+            {
+                playerObj = GameObject.FindWithTag("Player") ?? GameObject.Find("Player");
+            }
+
+            if (playerObj == null) return;
+
+            // Xác định slot index của người chơi cục bộ trong phòng
+            int slotIndex = 0;
+            if (PuzzleOnline.Network.PuzzleNetworkManager.Instance != null &&
+                PuzzleOnline.Network.PuzzleNetworkManager.Instance.RoomPlayers.Count > 0)
+            {
+                string myName = PuzzleOnline.Network.PuzzleNetworkManager.Instance.Username;
+                var players = PuzzleOnline.Network.PuzzleNetworkManager.Instance.RoomPlayers;
+                for (int i = 0; i < players.Count; i++)
+                {
+                    if (players[i].Username == myName)
+                    {
+                        slotIndex = i;
+                        break;
+                    }
                 }
             }
+
+            // Chọn vị trí ghế ngồi
+            Transform seatTarget = null;
+            if (chairTransforms != null && chairTransforms.Count > 0)
+            {
+                seatTarget = chairTransforms[slotIndex % chairTransforms.Count];
+            }
+
+            if (seatTarget != null)
+            {
+                // Điểm nhìn mục tiêu: tâm cụm Positions, hoặc mặt bàn, hoặc tâm board
+                Vector3 lookCenter = transform.position;
+                var posParent = GameObject.Find("Positions") ?? GameObject.Find("positions");
+                if (posParent != null)
+                {
+                    lookCenter = posParent.transform.position;
+                }
+                else if (tableTransform != null)
+                {
+                    lookCenter = tableTransform.position;
+                }
+
+                // Hướng xoay ngang (Yaw) nhìn về phía tâm bàn
+                Vector3 horizDir = lookCenter - seatTarget.position;
+                horizDir.y = 0f;
+                Quaternion lookRot = Quaternion.identity;
+                if (horizDir.sqrMagnitude > 0.001f)
+                {
+                    lookRot = Quaternion.LookRotation(horizDir.normalized, Vector3.up);
+                }
+
+                // Dịch chuyển Player đến vị trí ghế
+                if (pc != null)
+                {
+                    pc.TeleportTo(seatTarget.position, lookRot);
+                }
+                else
+                {
+                    var cc = playerObj.GetComponent<CharacterController>();
+                    if (cc != null) cc.enabled = false;
+                    playerObj.transform.position = seatTarget.position;
+                    playerObj.transform.rotation = lookRot;
+                    if (cc != null) cc.enabled = true;
+                }
+
+                // Tính góc chúc xuống (Pitch) nhìn thẳng vào mặt bàn xếp hình
+                Vector3 eyePos = seatTarget.position + Vector3.up * 1.5f;
+                Vector3 eyeToTarget = lookCenter - eyePos;
+                float pitch = 0f;
+                if (eyeToTarget.sqrMagnitude > 0.001f)
+                {
+                    pitch = Quaternion.LookRotation(eyeToTarget).eulerAngles.x;
+                    if (pitch > 180f) pitch -= 360f;
+                    pitch = Mathf.Clamp(pitch, -30f, 60f);
+                }
+
+                var camScript = playerObj.GetComponentInChildren<FirstPersonCamera.FirstPersonCameraScript>();
+                if (camScript != null)
+                {
+                    if (!hasInitializedCamera)
+                    {
+                        camScript.SetLookRotation(lookRot.eulerAngles.y, pitch);
+                        hasInitializedCamera = true;
+                    }
+                    else
+                    {
+                        camScript.SetCenterHorizontalAngle(lookRot.eulerAngles.y);
+                    }
+                }
+
+                playerPositioned = true;
+                Debug.Log($"<color=cyan><b>[PuzzleBoard] Đã cố định vị trí Player tại ghế '{seatTarget.name}' (Slot {slotIndex + 1})</b></color>");
+            }
+        }
+
+        private readonly Dictionary<string, RemotePlayerAvatar> _remoteAvatars = new Dictionary<string, RemotePlayerAvatar>(StringComparer.OrdinalIgnoreCase);
+
+        private void HandleRemotePlayerLook(string username, float yaw, float pitch)
+        {
+            if (_remoteAvatars.TryGetValue(username, out var avatar) && avatar != null)
+            {
+                avatar.SetTargetLook(yaw, pitch);
+            }
+        }
+
+        public void SyncRemotePlayerAvatars()
+        {
+            if (PuzzleOnline.Network.PuzzleNetworkManager.Instance == null) return;
+            var net = PuzzleOnline.Network.PuzzleNetworkManager.Instance;
+            string myName = net.Username;
+            var players = net.RoomPlayers;
+            if (players == null || players.Count == 0) return;
+
+            AutoDetectSceneEnvironment();
+
+            // Tìm Player GameObject cục bộ để nhân bản mô hình
+            GameObject localPlayerObj = null;
+            var pc = FindFirstObjectByType<PlayerController.PlayerController>();
+            if (pc != null) localPlayerObj = pc.gameObject;
+            else localPlayerObj = GameObject.FindWithTag("Player") ?? GameObject.Find("Player");
+
+            if (localPlayerObj == null) return;
+
+            var activeUsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            for (int i = 0; i < players.Count; i++)
+            {
+                var p = players[i];
+                if (string.Equals(p.Username, myName, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!p.Connected) continue;
+
+                activeUsers.Add(p.Username);
+
+                // Ghế ngồi tương ứng của bạn chơi
+                Transform seatTarget = null;
+                if (chairTransforms != null && chairTransforms.Count > 0)
+                {
+                    seatTarget = chairTransforms[i % chairTransforms.Count];
+                }
+
+                if (!_remoteAvatars.TryGetValue(p.Username, out var avatar) || avatar == null)
+                {
+                    Vector3 spawnPos = seatTarget != null ? seatTarget.position : localPlayerObj.transform.position;
+                    Quaternion spawnRot = seatTarget != null ? seatTarget.rotation : Quaternion.identity;
+
+                    GameObject remoteObj = Instantiate(localPlayerObj, spawnPos, spawnRot);
+                    remoteObj.name = "[Avatar_" + p.Username + "]";
+
+                    // Gỡ bỏ Camera và các script điều khiển khỏi Avatar của người chơi khác
+                    var cam = remoteObj.GetComponentInChildren<Camera>();
+                    if (cam != null) Destroy(cam.gameObject);
+                    var controller = remoteObj.GetComponent<PlayerController.PlayerController>();
+                    if (controller != null) Destroy(controller);
+                    var cc = remoteObj.GetComponent<CharacterController>();
+                    if (cc != null) Destroy(cc);
+
+                    // Đảm bảo tất cả các MeshRenderer đều bật hiển thị rõ nét
+                    var renderers = remoteObj.GetComponentsInChildren<MeshRenderer>(true);
+                    foreach (var mr in renderers)
+                    {
+                        mr.enabled = true;
+                        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                    }
+
+                    Transform head = remoteObj.transform.Find("Head");
+                    avatar = remoteObj.AddComponent<RemotePlayerAvatar>();
+                    avatar.Setup(p.Username, head);
+
+                    // Xoay mặt Avatar về phía bàn cờ
+                    Vector3 lookCenter = transform.position;
+                    var posParent = GameObject.Find("Positions") ?? GameObject.Find("positions");
+                    if (posParent != null) lookCenter = posParent.transform.position;
+                    else if (tableTransform != null) lookCenter = tableTransform.position;
+
+                    Vector3 horizDir = lookCenter - spawnPos;
+                    horizDir.y = 0f;
+                    if (horizDir.sqrMagnitude > 0.001f)
+                    {
+                        float yaw = Quaternion.LookRotation(horizDir.normalized).eulerAngles.y;
+                        Vector3 eyePos = spawnPos + Vector3.up * 1.5f;
+                        Vector3 toTarget = lookCenter - eyePos;
+                        float pitch = Quaternion.LookRotation(toTarget).eulerAngles.x;
+                        if (pitch > 180f) pitch -= 360f;
+                        avatar.SetTargetLook(yaw, pitch);
+                    }
+
+                    _remoteAvatars[p.Username] = avatar;
+                    Debug.Log($"<color=green><b>[PuzzleBoard] Đã tạo Avatar 3D cho người chơi '{p.Username}' tại ghế {i + 1}</b></color>");
+                }
+                else if (seatTarget != null)
+                {
+                    if (Vector3.Distance(avatar.transform.position, seatTarget.position) > 0.1f)
+                    {
+                        avatar.transform.position = seatTarget.position;
+                    }
+                }
+            }
+
+            // Xóa Avatar của người chơi đã rời phòng
+            var toRemove = new List<string>();
+            foreach (var kvp in _remoteAvatars)
+            {
+                if (!activeUsers.Contains(kvp.Key))
+                {
+                    toRemove.Add(kvp.Key);
+                    if (kvp.Value != null) Destroy(kvp.Value.gameObject);
+                }
+            }
+            foreach (var user in toRemove) _remoteAvatars.Remove(user);
+        }
+
+        private void ClearRemotePlayerAvatars()
+        {
+            foreach (var avatar in _remoteAvatars.Values)
+            {
+                if (avatar != null) Destroy(avatar.gameObject);
+            }
+            _remoteAvatars.Clear();
         }
 
         /// <summary>
@@ -264,9 +838,10 @@ namespace PuzzleSystem.Gameplay
             this.currentBoardWidth = puzzleData.boardWidth;
             this.currentBoardHeight = puzzleData.boardHeight;
             this.currentThickness = puzzleData.thickness;
+            this.loadedPuzzleId = puzzleData.puzzleId;
 
-            // Căn chỉnh bàn cờ nằm phẳng trên mặt bàn
-            AlignToTable();
+            // Vị trí và rotation thuộc về scene/prefab. Không tự căn lại board.
+            CreateGhostGuideBoard(puzzleData);
 
             // Chuẩn bị Materials
             Material faceMat = puzzleData.puzzleMaterial;
@@ -314,15 +889,15 @@ namespace PuzzleSystem.Gameplay
 
                 piece.OnPiecePlaced += HandlePiecePlaced;
                 activePieces.Add(piece);
+            }
 
-                if (!scatterPieces)
-                {
-                    piece.SnapToTarget();
-                }
-                else
-                {
-                    ScatterPiece(piece);
-                }
+            if (!scatterPieces)
+            {
+                foreach (var p in activePieces) p.SnapToTarget();
+            }
+            else
+            {
+                ScatterAllPieces(activePieces);
             }
 
             placedCount = 0;
@@ -378,8 +953,7 @@ namespace PuzzleSystem.Gameplay
             this.currentBoardHeight = cfg.boardHeight;
             this.currentThickness = cfg.thickness;
 
-            // Căn chỉnh bàn cờ nằm phẳng trên mặt bàn
-            AlignToTable();
+            // Vị trí và rotation thuộc về scene/prefab. Không tự căn lại board.
 
             // 1. Sinh cấu trúc hình học 2D
             var piecePolys = PuzzleGridGenerator.GeneratePolygons(config);
@@ -441,15 +1015,15 @@ namespace PuzzleSystem.Gameplay
 
                 pComponent.OnPiecePlaced += HandlePiecePlaced;
                 activePieces.Add(pComponent);
+            }
 
-                if (!scatterPieces)
-                {
-                    pComponent.SnapToTarget();
-                }
-                else
-                {
-                    ScatterPiece(pComponent);
-                }
+            if (!scatterPieces)
+            {
+                foreach (var p in activePieces) p.SnapToTarget();
+            }
+            else
+            {
+                ScatterAllPieces(activePieces);
             }
 
             placedCount = 0;
@@ -459,50 +1033,105 @@ namespace PuzzleSystem.Gameplay
 
         private void ScatterPiece(PuzzlePiece piece)
         {
-            Vector3 scatterPos;
-            Quaternion scatterRot = Quaternion.Euler(0f, UnityEngine.Random.Range(0, 4) * 90f, 0f);
+            if (piece != null)
+            {
+                ScatterAllPieces(new List<PuzzlePiece> { piece });
+            }
+        }
+
+        /// <summary>
+        /// Bố trí các mảnh ghép rải rác tự nhiên ôm sát quanh 4 cạnh của khung bàn cờ.
+        /// Giữ khoảng cách gần tâm (3cm - 20cm tính từ mép khung), tuyệt đối không văng ra mép bàn hay rơi xuống đất.
+        /// Nhờ vi phân cao độ Y (0.3mm mỗi mảnh), các mảnh rải rác tự nhiên không bao giờ bị z-fighting kể cả khi xếp gối/chạm nhau.
+        /// </summary>
+        private void ScatterAllPieces(List<PuzzlePiece> pieces)
+        {
+            if (pieces == null || pieces.Count == 0) return;
 
             float bw = currentBoardWidth > 0.01f ? currentBoardWidth : (config != null ? config.boardWidth : 0.8f);
             float bh = currentBoardHeight > 0.01f ? currentBoardHeight : (config != null ? config.boardHeight : 0.6f);
             float th = currentThickness > 0.001f ? currentThickness : (config != null ? config.thickness : 0.005f);
 
-            float tableRadius = Mathf.Max(bw, bh) * 0.8f;
+            float halfW = bw * 0.5f;
+            float halfH = bh * 0.5f;
 
-            if (chairTransforms != null && chairTransforms.Count > 0)
+            for (int i = 0; i < pieces.Count; i++)
             {
-                int chairIdx = piece.pieceId % chairTransforms.Count;
-                Transform targetChair = chairTransforms[chairIdx];
+                PuzzlePiece piece = pieces[i];
+                if (piece == null || piece.isPlaced) continue;
 
-                Vector3 toChair = (targetChair.position - transform.position).normalized;
-                float dist = UnityEngine.Random.Range(tableRadius * 0.5f, tableRadius * 1.1f);
-                Vector3 worldScatter = transform.position + toChair * dist + new Vector3(
-                    UnityEngine.Random.Range(-0.15f, 0.15f),
-                    th * 0.5f,
-                    UnityEngine.Random.Range(-0.15f, 0.15f)
-                );
-                scatterPos = transform.InverseTransformPoint(worldScatter);
-            }
-            else
-            {
-                float angle = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
-                float dist = UnityEngine.Random.Range(tableRadius * 0.6f, tableRadius * 1.2f);
-                scatterPos = new Vector3(
-                    Mathf.Cos(angle) * dist,
-                    th * 0.5f,
-                    Mathf.Sin(angle) * dist
-                );
-            }
+                Vector3 localPos;
 
-            piece.transform.localPosition = new Vector3(scatterPos.x, th * 0.5f, scatterPos.z);
-            piece.transform.localRotation = scatterRot;
+                // Phân bổ rải đều quanh 4 cạnh của khung bàn cờ (Trái, Phải, Trước, Sau):
+                // Các cạnh Trái và Phải có diện tích mặt bàn dài hơn nên nhận nhiều mảnh hơn
+                int side = i % 4; // 0 = Trái, 1 = Phải, 2 = Trước, 3 = Sau
+
+                if (side == 0) // Bên Trái bàn cờ
+                {
+                    float x = -halfW - UnityEngine.Random.Range(0.04f, 0.20f);
+                    float z = UnityEngine.Random.Range(-halfH * 0.85f, halfH * 0.85f);
+                    localPos = new Vector3(x, 0f, z);
+                }
+                else if (side == 1) // Bên Phải bàn cờ
+                {
+                    float x = halfW + UnityEngine.Random.Range(0.04f, 0.20f);
+                    float z = UnityEngine.Random.Range(-halfH * 0.85f, halfH * 0.85f);
+                    localPos = new Vector3(x, 0f, z);
+                }
+                else if (side == 2) // Phía Trước bàn cờ (hướng về phía người chơi)
+                {
+                    float x = UnityEngine.Random.Range(-halfW * 0.85f, halfW * 0.85f);
+                    float z = -halfH - UnityEngine.Random.Range(0.03f, 0.10f);
+                    localPos = new Vector3(x, 0f, z);
+                }
+                else // Phía Sau bàn cờ (đối diện)
+                {
+                    float x = UnityEngine.Random.Range(-halfW * 0.85f, halfW * 0.85f);
+                    float z = halfH + UnityEngine.Random.Range(0.03f, 0.10f);
+                    localPos = new Vector3(x, 0f, z);
+                }
+
+                // Chuyển sang World space để kiểm tra giới hạn mép bàn an toàn (nếu có)
+                if (hasTableBounds)
+                {
+                    Vector3 wPos = transform.TransformPoint(localPos);
+                    wPos.x = Mathf.Clamp(wPos.x, cachedTableBounds.min.x + 0.06f, cachedTableBounds.max.x - 0.06f);
+                    wPos.z = Mathf.Clamp(wPos.z, cachedTableBounds.min.z + 0.06f, cachedTableBounds.max.z - 0.06f);
+                    localPos = transform.InverseTransformPoint(wPos);
+                }
+
+                // Vi phân cao độ Y: mỗi mảnh lệch nhau 0.3mm -> triệt tiêu 100% z-fighting kể cả khi các mảnh đè/gối lên nhau
+                localPos.y = th * 0.5f + (piece.pieceId * 0.0003f);
+
+                piece.transform.localPosition = localPos;
+                piece.transform.localRotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0, 4) * 90f, 0f);
+            }
+        }
+
+        private float DistanceToTableEdge(Vector3 origin, Vector3 dir)
+        {
+            if (!hasTableBounds) return 1.5f;
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 0.001f) return 1.5f;
+            dir.Normalize();
+
+            float tMinX = (dir.x > 0) ? (cachedTableBounds.max.x - origin.x) / dir.x : ((dir.x < 0) ? (cachedTableBounds.min.x - origin.x) / dir.x : float.MaxValue);
+            float tMinZ = (dir.z > 0) ? (cachedTableBounds.max.z - origin.z) / dir.z : ((dir.z < 0) ? (cachedTableBounds.min.z - origin.z) / dir.z : float.MaxValue);
+
+            float t = Mathf.Min(tMinX, tMinZ);
+            return (t > 0f && t < 10f) ? t : 1.5f;
         }
 
         private void HandlePiecePlaced(PuzzlePiece piece)
         {
-            placedCount++;
+            placedCount = 0;
+            foreach (var p in activePieces)
+            {
+                if (p != null && p.isPlaced) placedCount++;
+            }
             UpdateProgress();
 
-            if (placedCount >= activePieces.Count)
+            if (!isCompleted && activePieces.Count > 0 && placedCount >= activePieces.Count)
             {
                 isCompleted = true;
                 OnPuzzleCompleted?.Invoke();
@@ -516,16 +1145,91 @@ namespace PuzzleSystem.Gameplay
             OnProgressChanged?.Invoke(ratio);
         }
 
+        private GameObject guideBoardObj;
+
+        private void CreateGhostGuideBoard(PuzzleData puzzleData)
+        {
+            if (guideBoardObj != null)
+            {
+                if (Application.isPlaying) Destroy(guideBoardObj);
+                else DestroyImmediate(guideBoardObj);
+                guideBoardObj = null;
+            }
+
+            if (puzzleData == null) return;
+
+            float bw = puzzleData.boardWidth > 0.01f ? puzzleData.boardWidth : (config != null ? config.boardWidth : 0.8f);
+            float bh = puzzleData.boardHeight > 0.01f ? puzzleData.boardHeight : (config != null ? config.boardHeight : 0.6f);
+            float halfW = bw * 0.5f;
+            float halfH = bh * 0.5f;
+
+            // Khung viền màu trắng chỉ vị trí hội tụ thành tranh (không hiển thị ảnh làm mờ bên dưới)
+            guideBoardObj = new GameObject("[PuzzleGuideBorder]");
+            guideBoardObj.transform.SetParent(transform, false);
+
+            // Đặt sát trên mặt bàn (+1mm để tránh z-fighting với mặt bàn)
+            guideBoardObj.transform.localPosition = new Vector3(0f, 0.001f, 0f);
+            guideBoardObj.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            guideBoardObj.transform.localScale = Vector3.one;
+
+            var lr = guideBoardObj.AddComponent<LineRenderer>();
+            lr.useWorldSpace = false;
+            lr.loop = true;
+            lr.positionCount = 4;
+            lr.startWidth = 0.006f;
+            lr.endWidth = 0.006f;
+
+            // Tạo Material Unlit màu trắng tinh khiết
+            Shader unlitShader = Shader.Find("Universal Render Pipeline/Unlit") 
+                                 ?? Shader.Find("Sprites/Default") 
+                                 ?? Shader.Find("Unlit/Color");
+            Material lineMat = new Material(unlitShader);
+            lineMat.color = Color.white;
+            lr.material = lineMat;
+            lr.startColor = Color.white;
+            lr.endColor = Color.white;
+            lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            lr.receiveShadows = false;
+
+            lr.SetPosition(0, new Vector3(-halfW, -halfH, 0f));
+            lr.SetPosition(1, new Vector3(halfW, -halfH, 0f));
+            lr.SetPosition(2, new Vector3(halfW, halfH, 0f));
+            lr.SetPosition(3, new Vector3(-halfW, halfH, 0f));
+        }
+
         public void ClearBoard()
         {
-            foreach (var piece in activePieces)
+            // Xóa sạch toàn bộ mảnh ghép trong PuzzleBoard và bất kỳ mảnh cũ nào còn sót trong Scene
+            var allScenePieces = FindObjectsByType<PuzzlePiece>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var piece in allScenePieces)
             {
                 if (piece != null)
                 {
                     piece.OnPiecePlaced -= HandlePiecePlaced;
-                    DestroyImmediate(piece.gameObject);
+                    if (Application.isPlaying) Destroy(piece.gameObject);
+                    else DestroyImmediate(piece.gameObject);
                 }
             }
+
+            // Dọn dẹp cả GameObject cha rỗng của Prefab cũ nếu có
+            string[] cleanupNames = { "forest", "ocean", "sunset", "forest.prefab", "ocean.prefab" };
+            foreach (var cName in cleanupNames)
+            {
+                var leftover = GameObject.Find(cName);
+                if (leftover != null && leftover != gameObject && leftover.transform.parent != transform)
+                {
+                    if (Application.isPlaying) Destroy(leftover);
+                    else DestroyImmediate(leftover);
+                }
+            }
+
+            if (guideBoardObj != null)
+            {
+                if (Application.isPlaying) Destroy(guideBoardObj);
+                else DestroyImmediate(guideBoardObj);
+                guideBoardObj = null;
+            }
+
             activePieces.Clear();
             placedCount = 0;
             isCompleted = false;
