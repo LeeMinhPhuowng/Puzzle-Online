@@ -1,13 +1,19 @@
 using UnityEngine;
+using PuzzleOnline.Utility;
+using PuzzleOnline.Core;
 
 namespace PuzzleSystem.Gameplay
 {
+    /// <summary>
+    /// Xử lý tương tác gắp thả, xoay và hút ghép mảnh qua Raycast.
+    /// Sử dụng IAudioService, INetworkService, IUIService qua ServiceLocator để hỗ trợ Dependency Injection.
+    /// </summary>
     public class PuzzleRaycastInteractor : MonoBehaviour
     {
         [Header("Camera & Raycast Settings")]
         [Tooltip("Camera chính dùng để raycast (nếu để trống sẽ lấy Camera.main)")]
         public Camera playerCamera;
-        public float maxInteractDistance = 6f;
+        public float maxInteractDistance = 15f;
         public LayerMask pieceLayer = ~0;
 
         [Header("Pick & Place Parameters")]
@@ -23,6 +29,23 @@ namespace PuzzleSystem.Gameplay
         private Plane tablePlane;
         private Vector3 targetWorldPos;
         private Quaternion targetWorldRot;
+        private float lastNetworkSyncTime;
+
+        // Dependencies (Injectable for Unit Testing)
+        private IAudioService _audioService;
+        private INetworkService _networkService;
+        private IUIService _uiService;
+
+        public void SetDependencies(IAudioService audio, INetworkService network, IUIService ui)
+        {
+            _audioService = audio;
+            _networkService = network;
+            _uiService = ui;
+        }
+
+        private IAudioService Audio => _audioService ??= ServiceLocator.Get<IAudioService>();
+        private INetworkService Network => _networkService ??= ServiceLocator.Get<INetworkService>();
+        private IUIService UI => _uiService ??= ServiceLocator.Get<IUIService>();
 
         private void Start()
         {
@@ -36,7 +59,7 @@ namespace PuzzleSystem.Gameplay
         {
             if (playerCamera == null) return;
 
-            if (PuzzleOnline.UI.PuzzleOnlineUIManager.IsModalOrChatOpen)
+            if (UI != null && UI.IsModalOrChatOpen)
             {
                 if (heldPiece != null)
                 {
@@ -58,13 +81,13 @@ namespace PuzzleSystem.Gameplay
                 if (Input.GetKeyDown(rotateKey))
                 {
                     targetWorldRot *= Quaternion.Euler(0f, 90f, 0f);
-                    PuzzleOnline.Audio.PuzzleAudioService.Instance?.PlayRotate();
+                    Audio?.PlayRotate();
                 }
                 else if (allowScrollWheelRotation && Mathf.Abs(Input.mouseScrollDelta.y) > 0.1f)
                 {
                     float angle = Input.mouseScrollDelta.y > 0 ? 90f : -90f;
                     targetWorldRot *= Quaternion.Euler(0f, angle, 0f);
-                    PuzzleOnline.Audio.PuzzleAudioService.Instance?.PlayRotate();
+                    Audio?.PlayRotate();
                 }
 
                 // Cập nhật vị trí kéo rê theo mặt phẳng bàn
@@ -85,18 +108,64 @@ namespace PuzzleSystem.Gameplay
             }
         }
 
-        private float lastNetworkSyncTime;
+        public bool IsStunned => Time.time < stunEndTime;
+        private float stunEndTime = 0f;
+        private float magnetDebuffEndTime = 0f;
+
+        public void Stun(float duration)
+        {
+            stunEndTime = Time.time + duration;
+            ForceDropHeldPiece();
+        }
+
+        public void ApplyMagnetDebuff(float duration = 6f)
+        {
+            if (heldPiece != null)
+            {
+                ForceDropHeldPiece();
+            }
+            else
+            {
+                magnetDebuffEndTime = Time.time + duration;
+            }
+        }
+
+        public void ForceDropHeldPiece()
+        {
+            if (heldPiece != null)
+            {
+                heldPiece.SetHeld(false);
+                Network?.ReleasePiece(heldPiece.pieceId, heldPiece.transform.localPosition.x, heldPiece.transform.localPosition.z, Mathf.RoundToInt(heldPiece.transform.localEulerAngles.y));
+                heldPiece = null;
+            }
+        }
 
         private void SendHeldPieceNetworkUpdate()
         {
             if (heldPiece == null) return;
             Vector3 local = heldPiece.transform.localPosition;
             int rot = Mathf.RoundToInt(heldPiece.transform.localEulerAngles.y);
-            PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendMovePiece(heldPiece.pieceId, local.x, local.z, rot);
+            Network?.MovePiece(heldPiece.pieceId, local.x, local.z, rot);
         }
 
         private void TryPickupPiece()
         {
+            if (IsStunned) return;
+
+            // Chặn Saboteur không thể cầm/gắp mảnh ghép!
+            if (PuzzleOnline.Network.PuzzleNetworkManager.Instance != null &&
+                PuzzleOnline.Network.PuzzleNetworkManager.Instance.IsSaboteur)
+            {
+                return;
+            }
+
+            if (Time.time < magnetDebuffEndTime)
+            {
+                magnetDebuffEndTime = 0f;
+                Audio?.PlayRotate();
+                return;
+            }
+
             Ray ray = GetInteractionRay();
             RaycastHit[] hits = Physics.RaycastAll(ray, maxInteractDistance, pieceLayer);
             System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
@@ -108,8 +177,8 @@ namespace PuzzleSystem.Gameplay
                 {
                     heldPiece = piece;
                     heldPiece.SetHeld(true);
-                    PuzzleOnline.Audio.PuzzleAudioService.Instance?.PlayPick();
-                    PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendLockPiece(piece.pieceId);
+                    Audio?.PlayPick();
+                    Network?.LockPiece(piece.pieceId);
 
                     // Thiết lập mặt phẳng di chuyển theo phương ngang tại độ cao nhấc bổng
                     Transform board = piece.transform.parent;
@@ -153,7 +222,7 @@ namespace PuzzleSystem.Gameplay
             );
         }
 
-        private void ReleasePiece()
+        public void ReleasePiece()
         {
             if (heldPiece == null) return;
 
@@ -165,7 +234,7 @@ namespace PuzzleSystem.Gameplay
             bool snapped = releasing.TrySnap(snapDistanceTolerance, snapAngleTolerance);
             if (!snapped)
             {
-                // Nếu chưa khớp, hạ mảnh chạm về độ cao phẳng chuẩn của mặt bàn cờ (không bao giờ trừ âm làm chìm đất)
+                // Nếu chưa khớp, hạ mảnh chạm về độ cao phẳng chuẩn của mặt bàn cờ
                 Transform board = releasing.transform.parent;
                 if (board != null)
                 {
@@ -173,27 +242,34 @@ namespace PuzzleSystem.Gameplay
                     local.y = releasing.correctLocalPos.y + (releasing.pieceId * 0.0003f);
                     releasing.transform.localPosition = local;
                     int rot = Mathf.RoundToInt(releasing.transform.localEulerAngles.y);
-                    PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendReleasePiece(releasing.pieceId, local.x, local.z, rot);
+                    Network?.ReleasePiece(releasing.pieceId, local.x, local.z, rot);
                 }
                 else
                 {
                     Vector3 p = releasing.transform.position;
                     p.y -= liftHeight;
                     releasing.transform.position = p;
-                    PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendReleasePiece(releasing.pieceId, 0f, 0f, 0);
+                    Network?.ReleasePiece(releasing.pieceId, 0f, 0f, 0);
                 }
+                Audio?.PlayDrop();
             }
             else
             {
                 Vector3 local = releasing.transform.localPosition;
                 int rot = Mathf.RoundToInt(releasing.transform.localEulerAngles.y);
-                PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendPlacePiece(releasing.pieceId, local.x, local.z, rot);
+                Network?.PlacePiece(releasing.pieceId, local.x, local.z, rot);
             }
         }
 
         private Ray GetInteractionRay()
         {
-            if (Cursor.lockState == CursorLockMode.Locked)
+            // Nếu đang bật góc nhìn trên cao Overhead, luôn raycast tự do theo vị trí con trỏ chuột
+            if (FirstPersonCamera.FirstPersonCameraScript.IsOverheadActive)
+            {
+                return playerCamera.ScreenPointToRay(Input.mousePosition);
+            }
+
+            if (CursorManager.IsLocked)
             {
                 // Chế độ First-Person: Raycast từ tâm màn hình camera
                 return playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));

@@ -549,9 +549,21 @@ namespace PuzzleSystem.Editor
                     poly.centerPos.y - halfH
                 );
 
-                // Đặt sẵn vị trí và góc xoay hoàn chỉnh trên bàn cờ trong Prefab
-                pieceObj.transform.localPosition = targetLocalPos;
-                pieceObj.transform.localRotation = Quaternion.identity;
+                // Lúc setup bàn ban đầu: các mảnh được đặt chất đống rải rác ở chính giữa bàn (ghost target)
+                float pileRadiusX = halfW * 0.35f;
+                float pileRadiusZ = halfH * 0.35f;
+                float angle = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+                float dist = Mathf.Sqrt(UnityEngine.Random.Range(0f, 1f));
+                float scatterX = Mathf.Cos(angle) * pileRadiusX * dist;
+                float scatterZ = Mathf.Sin(angle) * pileRadiusZ * dist;
+                float moundHeight = (1f - dist) * 0.003f;
+                float scatterY = config.thickness * 0.5f + (poly.pieceId * 0.0005f) + moundHeight;
+
+                pieceObj.transform.localPosition = new Vector3(scatterX, scatterY, scatterZ);
+                pieceObj.transform.localRotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0, 4) * 90f, 0f);
+
+                int pieceLayer = LayerMask.NameToLayer("Piece");
+                if (pieceLayer != -1) pieceObj.layer = pieceLayer;
 
                 var mf = pieceObj.AddComponent<MeshFilter>();
                 mf.sharedMesh = mesh;

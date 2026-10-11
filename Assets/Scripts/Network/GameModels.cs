@@ -13,6 +13,7 @@ namespace PuzzleOnline.Network
         public int Score;
         public bool Connected;
         public bool IsHost;
+        public string Team = "BUILDER"; // BUILDER or SABOTEUR
     }
 
     [Serializable]
@@ -37,6 +38,17 @@ namespace PuzzleOnline.Network
         public bool HasSave;
         public bool HasPassword;
         public int TargetTimeSeconds = 300;
+        public string GameMode = "CLASSIC"; // CLASSIC or COMPETITIVE
+    }
+
+    [Serializable]
+    public sealed class WorldItemInfo
+    {
+        public string Id;
+        public string ItemType; // FLASHLIGHT, INK, SLAP, MAGNET, SHOVEL
+        public float X;
+        public float Y;
+        public float Z;
     }
 
     [Serializable]
@@ -66,7 +78,8 @@ namespace PuzzleOnline.Network
     public sealed class ThemeDefinition
     {
         public string Id;          // Scene name: SCN_Nature, SCN_Classroom, SCN_Sakura
-        public string Name;        // Display name
+        public string Name;        // Display name from database
+        public string Description; // Description from database
         public int Price;
         public bool Owned;
         public bool Equipped;
@@ -91,7 +104,10 @@ namespace PuzzleOnline.Network
         public long RequestId;
         public long SenderId;
         public string SenderUsername;
+        public long TargetUserId;
+        public string TargetUsername;
         public string CreatedAt;
+        public bool IsSent;
     }
 
     public static class ModelParser
@@ -114,7 +130,8 @@ namespace PuzzleOnline.Network
                     HasSave = Bool(fields[7]),
                     ThemeId = fields.Length >= 9 ? fields[8] : "SCN_Nature",
                     HasPassword = fields.Length >= 10 && Bool(fields[9]),
-                    TargetTimeSeconds = fields.Length >= 11 ? Int(fields[10]) : 300
+                    TargetTimeSeconds = fields.Length >= 11 ? Int(fields[10]) : 300,
+                    GameMode = fields.Length >= 12 ? fields[11] : "CLASSIC"
                 });
             }
             return output;
@@ -131,18 +148,25 @@ namespace PuzzleOnline.Network
             return output;
         }
 
-        public static List<FriendRequestItem> FriendRequests(string packed)
+        public static List<FriendRequestItem> FriendRequests(string packed, bool isSent = false)
         {
             var output = new List<FriendRequestItem>();
             foreach (var fields in WireProtocol.UnpackRecords(packed))
             {
                 if (fields.Length < 3) continue;
+                long id = Long(fields[0]);
+                long userId = Long(fields[1]);
+                string username = fields[2];
+                string created = fields.Length >= 4 ? fields[3] : "";
                 output.Add(new FriendRequestItem
                 {
-                    RequestId = Long(fields[0]),
-                    SenderId = Long(fields[1]),
-                    SenderUsername = fields[2],
-                    CreatedAt = fields.Length >= 4 ? fields[3] : ""
+                    RequestId = id,
+                    SenderId = userId,
+                    SenderUsername = username,
+                    TargetUserId = userId,
+                    TargetUsername = username,
+                    CreatedAt = created,
+                    IsSent = isSent
                 });
             }
             return output;
@@ -161,7 +185,27 @@ namespace PuzzleOnline.Network
                     Ready = Bool(fields[2]),
                     Score = Int(fields[3]),
                     Connected = Bool(fields[4]),
-                    IsHost = Bool(fields[5])
+                    IsHost = Bool(fields[5]),
+                    Team = fields.Length >= 7 ? fields[6] : "BUILDER"
+                });
+            }
+            return output;
+        }
+
+        public static List<WorldItemInfo> WorldItems(string packed)
+        {
+            var output = new List<WorldItemInfo>();
+            if (string.IsNullOrEmpty(packed)) return output;
+            foreach (var fields in WireProtocol.UnpackRecords(packed))
+            {
+                if (fields.Length < 5) continue;
+                output.Add(new WorldItemInfo
+                {
+                    Id = fields[0],
+                    ItemType = fields[1],
+                    X = Float(fields[2]),
+                    Y = Float(fields[3]),
+                    Z = Float(fields[4])
                 });
             }
             return output;
@@ -199,7 +243,8 @@ namespace PuzzleOnline.Network
                     Name = fields[1],
                     Price = Int(fields[2]),
                     Owned = Bool(fields[3]),
-                    Equipped = Bool(fields[4])
+                    Equipped = Bool(fields[4]),
+                    Description = fields.Length >= 6 ? fields[5] : string.Empty
                 });
             }
             return output;

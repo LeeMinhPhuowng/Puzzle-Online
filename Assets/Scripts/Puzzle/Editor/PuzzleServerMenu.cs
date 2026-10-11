@@ -12,7 +12,7 @@ namespace PuzzleOnline.Editor
     public static class PuzzleServerMenu
     {
         private const string SessionKey = "PuzzleOnline_ServerPid";
-        private const int ServerPort = 7777;
+        private const int ServerPort = 7778;
         private static Process _serverProcess;
 
         static PuzzleServerMenu()

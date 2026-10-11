@@ -30,7 +30,7 @@ namespace PuzzleSystem.Gameplay
             get
             {
                 if (string.IsNullOrEmpty(lockedByPlayer)) return false;
-                string myName = PuzzleOnline.Network.PuzzleNetworkManager.Instance?.Username;
+                string myName = PuzzleOnline.Core.ServiceLocator.Get<PuzzleOnline.Core.INetworkService>()?.Username;
                 if (!string.IsNullOrEmpty(myName) && lockedByPlayer.Equals(myName, System.StringComparison.OrdinalIgnoreCase))
                 {
                     return false;
@@ -54,6 +54,13 @@ namespace PuzzleSystem.Gameplay
 
         private void Awake()
         {
+            // Tự động gán Layer "Piece" nếu đã tạo trong Project Settings
+            int pieceLayer = LayerMask.NameToLayer("Piece");
+            if (pieceLayer != -1)
+            {
+                gameObject.layer = pieceLayer;
+            }
+
             rb = GetComponent<Rigidbody>();
             colComponent = GetComponent<Collider>();
             meshRenderer = GetComponent<MeshRenderer>();
@@ -182,7 +189,7 @@ namespace PuzzleSystem.Gameplay
             }
 
             OnPiecePlaced?.Invoke(this);
-            PuzzleOnline.Audio.PuzzleAudioService.Instance?.PlaySnap();
+            PuzzleOnline.Audio.AudioManager.Instance?.PlaySnap();
         }
 
         public void SetHeld(bool held)
@@ -192,6 +199,48 @@ namespace PuzzleSystem.Gameplay
             {
                 rb.isKinematic = held;
             }
+        }
+
+        public void Unfit(Vector3 newLocalPos, Quaternion newLocalRot)
+        {
+            isPlaced = false;
+            isBeingHeld = false;
+            hasRemoteTarget = false;
+            transform.localPosition = newLocalPos;
+            transform.localRotation = newLocalRot;
+            targetRemotePos = newLocalPos;
+            targetRemoteRot = newLocalRot;
+            if (rb != null)
+            {
+                rb.isKinematic = true;
+            }
+        }
+
+        private Coroutine inkCoroutine;
+        public void ApplyInkEffect(float duration)
+        {
+            if (inkCoroutine != null) StopCoroutine(inkCoroutine);
+            inkCoroutine = StartCoroutine(InkRoutine(duration));
+        }
+
+        private System.Collections.IEnumerator InkRoutine(float duration)
+        {
+            if (meshRenderer != null && meshRenderer.material != null)
+            {
+                if (meshRenderer.material.HasProperty("_BaseColor"))
+                    meshRenderer.material.SetColor("_BaseColor", new Color(0.08f, 0.08f, 0.08f, 1f));
+                else if (meshRenderer.material.HasProperty("_Color"))
+                    meshRenderer.material.color = new Color(0.08f, 0.08f, 0.08f, 1f);
+            }
+            yield return new WaitForSeconds(duration);
+            if (meshRenderer != null && meshRenderer.material != null)
+            {
+                if (meshRenderer.material.HasProperty("_BaseColor"))
+                    meshRenderer.material.SetColor("_BaseColor", originalColor);
+                else if (meshRenderer.material.HasProperty("_Color"))
+                    meshRenderer.material.color = originalColor;
+            }
+            inkCoroutine = null;
         }
     }
 }

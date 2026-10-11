@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 495bfed0d786eca4aa31b05f3ca0c2a5, type: 3}
+  m_Name: SFXCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::PuzzleOnline.Audio.SFXCatalog
+  clickSound: {fileID: 8300000, guid: 23c6a4a772bbb4978953367c35df6b1a, type: 3}
+  clickVolume: 0.6
+  modalOpenSound: {fileID: 8300000, guid: da1db8529006f4a0f9ffa6428e54c604, type: 3}
+  modalOpenVolume: 0.7
+  modalCloseSound: {fileID: 8300000, guid: ae61285d635e340c5abc9413cb06301b, type: 3}
+  modalCloseVolume: 0.6
+  errorSound: {fileID: 0}
+  errorVolume: 0.8
+  piecePickSound: {fileID: 8300000, guid: 5dd444ef4e8264876aaf05afb792355d, type: 3}
+  piecePickVolume: 0.7
+  pieceDropSound: {fileID: 8300000, guid: 4221fe8affa304656a9fea1b93b413d8, type: 3}
+  pieceDropVolume: 0.6
+  pieceRotateSound: {fileID: 8300000, guid: cb89ae6b350f9466bbde7ed956451b19, type: 3}
+  pieceRotateVolume: 0.65
+  pieceSnapSound: {fileID: 8300000, guid: 171cbf7786001483b9e633a0a5610e19, type: 3}
+  pieceSnapVolume: 0.9
+  puzzleCompleteSound: {fileID: 8300000, guid: 8602c98eebfb94b8d9b2d09c463e815f, type: 3}
+  puzzleCompleteVolume: 1
+  timerTickSound: {fileID: 0}
+  timerTickVolume: 0
+  menuMusic: {fileID: 8300000, guid: 7f20c1dc40812b64795a2052b7d8845f, type: 3}
+  menuMusicVolume: 0.4
+  natureAmbience: {fileID: 8300000, guid: 7532410b194694b429185716d0edbee1, type: 3}
+  sakuraAmbience: {fileID: 8300000, guid: 7532410b194694b429185716d0edbee1, type: 3}
+  classroomAmbience: {fileID: 8300000, guid: 7532410b194694b429185716d0edbee1, type: 3}
+  useProceduralFallbackIfMissing: 0

@@ -1,6 +1,7 @@
 param(
-    [int]$Port = 7777,
-    [string]$DataDirectory = "server-data"
+    [int]$Port = 7778,
+    [string]$DataDirectory = "server-data",
+    [switch]$Background
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,5 +27,22 @@ if ($libJars) {
 if ($LASTEXITCODE -ne 0) { throw "javac failed with exit code $LASTEXITCODE" }
 
 $resolvedData = if ([System.IO.Path]::IsPathRooted($DataDirectory)) { $DataDirectory } else { Join-Path $serverRoot $DataDirectory }
+
+# Check if port is already in use and stop old process
+$existingConns = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue
+if ($existingConns) {
+    $pidsToKill = $existingConns | Select-Object -ExpandProperty OwningProcess -Unique
+    foreach ($procId in $pidsToKill) {
+        Write-Host "Port $Port is in use by PID $procId. Stopping old process..."
+        Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Milliseconds 800
+}
+
 Write-Host "Starting server on port $Port with MySQL backend..."
-& java -Xms64m -Xmx256m -cp $classpath vn.puzzleonline.server.PuzzleServer "--port=$Port" "--data=$resolvedData"
+if ($Background) {
+    Start-Process -FilePath "java" -ArgumentList "-Xms64m -Xmx256m -cp `"$classpath`" vn.puzzleonline.server.PuzzleServer --port=$Port --data=`"$resolvedData`"" -WorkingDirectory $serverRoot -WindowStyle Hidden
+    Write-Host "Server started in background process."
+} else {
+    & java -Xms64m -Xmx256m -cp $classpath vn.puzzleonline.server.PuzzleServer "--port=$Port" "--data=$resolvedData"
+}

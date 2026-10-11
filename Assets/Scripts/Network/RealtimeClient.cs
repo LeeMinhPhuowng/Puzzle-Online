@@ -19,6 +19,7 @@ namespace PuzzleOnline.Network
         public string ConnectionLabel { get; private set; } = "Chưa kết nối";
 
         private readonly ConcurrentQueue<NetMessage> _inbox = new ConcurrentQueue<NetMessage>();
+        private readonly Queue<string> _pendingSend = new Queue<string>();
         private readonly object _writerLock = new object();
         private TcpClient _tcp;
         private StreamReader _reader;
@@ -49,6 +50,17 @@ namespace PuzzleOnline.Network
                 IsConnected = true;
                 IsConnecting = false;
                 ConnectionLabel = "Đã kết nối";
+
+                // Gửi các gói tin đang chờ trong hàng đợi (như LOGIN, REGISTER)
+                lock (_writerLock)
+                {
+                    while (_pendingSend.Count > 0)
+                    {
+                        var pendingMsg = _pendingSend.Dequeue();
+                        _writer.WriteLine(pendingMsg);
+                    }
+                }
+
                 _inbox.Enqueue(new NetMessage("CONNECTED"));
                 _ = ReadLoop(_lifetime.Token);
             }
@@ -65,8 +77,19 @@ namespace PuzzleOnline.Network
 
         public void Send(string type, params (string Key, object Value)[] fields)
         {
-            if (!IsConnected || _writer == null) return;
             var line = WireProtocol.Encode(type, fields);
+            if (!IsConnected || _writer == null)
+            {
+                if (IsConnecting)
+                {
+                    lock (_writerLock)
+                    {
+                        _pendingSend.Enqueue(line);
+                    }
+                }
+                return;
+            }
+
             try
             {
                 lock (_writerLock) _writer.WriteLine(line);
@@ -128,6 +151,16 @@ namespace PuzzleOnline.Network
 
         private void DisconnectInternal(bool clean)
         {
+            try
+            {
+                if (_tcp != null && _tcp.Connected && _writer != null)
+                {
+                    _writer.WriteLine("LEAVE_ROOM");
+                    _writer.Flush();
+                }
+            }
+            catch { }
+
             try { _lifetime?.Cancel(); } catch { }
             try { _lifetime?.Dispose(); } catch { }
             _lifetime = null;
@@ -143,6 +176,7 @@ namespace PuzzleOnline.Network
 
             IsConnected = false;
             IsConnecting = false;
+            lock (_writerLock) { _pendingSend.Clear(); }
             ConnectionLabel = clean ? "Đã ngắt kết nối" : "Mất kết nối";
         }
     }

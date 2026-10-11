@@ -1,0 +1,729 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0caff1de35a0d7418429454aece07d8, type: 3}
+  m_Name: rei
+  m_EditorClassIdentifier: Assembly-CSharp::PuzzleSystem.Core.PuzzleData
+  puzzleId: rei_10x10
+  displayName: Ayanami Rei
+  description: "Tranh gh\xE9p Ayanami Rei 100 m\u1EA3nh gh\xE9p"
+  thumbnail: {fileID: 0}
+  price: 300
+  reward: 150
+  rows: 10
+  columns: 10
+  boardWidth: 0.8
+  boardHeight: 0.4
+  thickness: 0.005
+  sourceImage: {fileID: 2800000, guid: 016a63845ccacee4a98596e3e8677f14, type: 3}
+  puzzleMaterial: {fileID: 2100000, guid: 39a89394294c8f04399687dbadafd1ee, type: 2}
+  sideMaterial: {fileID: 2100000, guid: 1b2fc03f28b75f147bfd43c0aa3601a7, type: 2}
+  pieces:
+  - pieceId: 0
+    row: 0
+    col: 0
+    correctLocalPosition: {x: -0.36, y: 0.0025, z: 0.17999999}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: b386b34ba6a35674cab72c1c2ec0ac42, type: 2}
+  - pieceId: 1
+    row: 0
+    col: 1
+    correctLocalPosition: {x: -0.28, y: 0.0025, z: 0.17999999}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 869f0e76080ec4942afd8872e6da310f, type: 2}
+  - pieceId: 2
+    row: 0
+    col: 2
+    correctLocalPosition: {x: -0.20000002, y: 0.0025, z: 0.17999999}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: dd2b4bf89f066e94392a129f809b052a, type: 2}
+  - pieceId: 3
+    row: 0
+    col: 3
+    correctLocalPosition: {x: -0.120000005, y: 0.0025, z: 0.17999999}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: c6735d9aeceae804d94bc8a32aa594ec, type: 2}
+  - pieceId: 4
+    row: 0
+    col: 4
+    correctLocalPosition: {x: -0.04000002, y: 0.0025, z: 0.17999999}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: a0b2b954446a04e46b9ab62812268f0e, type: 2}
+  - pieceId: 5
+    row: 0
+    col: 5
+    correctLocalPosition: {x: 0.03999999, y: 0.0025, z: 0.17999999}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: c186f3c54fdd0e841bac86ff17a867e7, type: 2}
+  - pieceId: 6
+    row: 0
+    col: 6
+    correctLocalPosition: {x: 0.119999975, y: 0.0025, z: 0.17999999}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 46722556de289be4290ca40bdc6fcbe3, type: 2}
+  - pieceId: 7
+    row: 0
+    col: 7
+    correctLocalPosition: {x: 0.20000002, y: 0.0025, z: 0.17999999}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: b4143aa3d5b671f429d61df6eb1f7b91, type: 2}
+  - pieceId: 8
+    row: 0
+    col: 8
+    correctLocalPosition: {x: 0.27999994, y: 0.0025, z: 0.17999999}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 4b0129cbec30a0248904d9b89c6ed6c4, type: 2}
+  - pieceId: 9
+    row: 0
+    col: 9
+    correctLocalPosition: {x: 0.35999998, y: 0.0025, z: 0.17999999}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 64adc677cc9a2f5428483070614115af, type: 2}
+  - pieceId: 10
+    row: 1
+    col: 0
+    correctLocalPosition: {x: -0.36, y: 0.0025, z: 0.13999997}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: f5f9c707652a183409a813344a4516a9, type: 2}
+  - pieceId: 11
+    row: 1
+    col: 1
+    correctLocalPosition: {x: -0.28, y: 0.0025, z: 0.13999997}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: c723f5acbc4685643a56b848295404f9, type: 2}
+  - pieceId: 12
+    row: 1
+    col: 2
+    correctLocalPosition: {x: -0.20000002, y: 0.0025, z: 0.13999997}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 7c540b5a5d12f1942914e92fcd5dc97e, type: 2}
+  - pieceId: 13
+    row: 1
+    col: 3
+    correctLocalPosition: {x: -0.120000005, y: 0.0025, z: 0.13999997}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 3bf19123dc4d486479d7ec64d02eee1f, type: 2}
+  - pieceId: 14
+    row: 1
+    col: 4
+    correctLocalPosition: {x: -0.04000002, y: 0.0025, z: 0.13999997}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 14f17dfbb59f11c4397bc32a2d35c56d, type: 2}
+  - pieceId: 15
+    row: 1
+    col: 5
+    correctLocalPosition: {x: 0.03999999, y: 0.0025, z: 0.13999997}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 0c2033e1876ea6e42beed065702677bb, type: 2}
+  - pieceId: 16
+    row: 1
+    col: 6
+    correctLocalPosition: {x: 0.119999975, y: 0.0025, z: 0.13999997}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 321c6c6ab0f568d46b2552a9a893204c, type: 2}
+  - pieceId: 17
+    row: 1
+    col: 7
+    correctLocalPosition: {x: 0.20000002, y: 0.0025, z: 0.13999997}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: d5a7e59690dceac4eb2f719f5565dc64, type: 2}
+  - pieceId: 18
+    row: 1
+    col: 8
+    correctLocalPosition: {x: 0.27999994, y: 0.0025, z: 0.13999997}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 528cdd1edb807574397b258b39a4d31b, type: 2}
+  - pieceId: 19
+    row: 1
+    col: 9
+    correctLocalPosition: {x: 0.35999998, y: 0.0025, z: 0.13999997}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 36401ecce2f002b4799c64c2bd8a57ea, type: 2}
+  - pieceId: 20
+    row: 2
+    col: 0
+    correctLocalPosition: {x: -0.36, y: 0.0025, z: 0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 73fd24f6a901b88489567a7275abc40c, type: 2}
+  - pieceId: 21
+    row: 2
+    col: 1
+    correctLocalPosition: {x: -0.28, y: 0.0025, z: 0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: bdb7ee18be6d9a74dae6213332e4d826, type: 2}
+  - pieceId: 22
+    row: 2
+    col: 2
+    correctLocalPosition: {x: -0.20000002, y: 0.0025, z: 0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: a3540ee851449964ca6c2c7a570ff8bd, type: 2}
+  - pieceId: 23
+    row: 2
+    col: 3
+    correctLocalPosition: {x: -0.120000005, y: 0.0025, z: 0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: b1c593467586ed0459bb66009a768fe8, type: 2}
+  - pieceId: 24
+    row: 2
+    col: 4
+    correctLocalPosition: {x: -0.04000002, y: 0.0025, z: 0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 85daa59a0a539734397c1b4c09cc90a1, type: 2}
+  - pieceId: 25
+    row: 2
+    col: 5
+    correctLocalPosition: {x: 0.03999999, y: 0.0025, z: 0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 37dfe05aa5cc4ab4e9b8a054788b649b, type: 2}
+  - pieceId: 26
+    row: 2
+    col: 6
+    correctLocalPosition: {x: 0.119999975, y: 0.0025, z: 0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: cdce258928c703542908953d325c917e, type: 2}
+  - pieceId: 27
+    row: 2
+    col: 7
+    correctLocalPosition: {x: 0.20000002, y: 0.0025, z: 0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 5c73df79b70e42f46beed8363e7f87bc, type: 2}
+  - pieceId: 28
+    row: 2
+    col: 8
+    correctLocalPosition: {x: 0.27999994, y: 0.0025, z: 0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: d9b8fadcf06c3444aaafd0454c70e45c, type: 2}
+  - pieceId: 29
+    row: 2
+    col: 9
+    correctLocalPosition: {x: 0.35999998, y: 0.0025, z: 0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 29327a066f98dde42a0e72544a060286, type: 2}
+  - pieceId: 30
+    row: 3
+    col: 0
+    correctLocalPosition: {x: -0.36, y: 0.0025, z: 0.059999987}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: aa874dc59ed054e4f84d881cd2e54e3b, type: 2}
+  - pieceId: 31
+    row: 3
+    col: 1
+    correctLocalPosition: {x: -0.28, y: 0.0025, z: 0.059999987}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 9f74d97e48e5a6d44b847ccf7ae0a22b, type: 2}
+  - pieceId: 32
+    row: 3
+    col: 2
+    correctLocalPosition: {x: -0.20000002, y: 0.0025, z: 0.059999987}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 768f70425d75cce40bd0c34701aeb107, type: 2}
+  - pieceId: 33
+    row: 3
+    col: 3
+    correctLocalPosition: {x: -0.120000005, y: 0.0025, z: 0.059999987}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: ddaaa7d0aebba4b41a51078e6236916b, type: 2}
+  - pieceId: 34
+    row: 3
+    col: 4
+    correctLocalPosition: {x: -0.04000002, y: 0.0025, z: 0.059999987}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: e51bbe1b7a5691d4c8d1cb1d39c7c9b6, type: 2}
+  - pieceId: 35
+    row: 3
+    col: 5
+    correctLocalPosition: {x: 0.03999999, y: 0.0025, z: 0.059999987}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 0b78ca01691527248925cc683c75ac43, type: 2}
+  - pieceId: 36
+    row: 3
+    col: 6
+    correctLocalPosition: {x: 0.119999975, y: 0.0025, z: 0.059999987}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: b0151cfb6cc370d47af1a55c2b909ab8, type: 2}
+  - pieceId: 37
+    row: 3
+    col: 7
+    correctLocalPosition: {x: 0.20000002, y: 0.0025, z: 0.059999987}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: c03c7a41f6a45ab4e98a0f9b5dc29c7e, type: 2}
+  - pieceId: 38
+    row: 3
+    col: 8
+    correctLocalPosition: {x: 0.27999994, y: 0.0025, z: 0.059999987}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 3860aa9b4e132a84499059658d9e7cac, type: 2}
+  - pieceId: 39
+    row: 3
+    col: 9
+    correctLocalPosition: {x: 0.35999998, y: 0.0025, z: 0.059999987}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: b2c720d1a57e507428bf48e14cb12867, type: 2}
+  - pieceId: 40
+    row: 4
+    col: 0
+    correctLocalPosition: {x: -0.36, y: 0.0025, z: 0.019999996}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 9975641d8ded94c4daa3c519c37dca76, type: 2}
+  - pieceId: 41
+    row: 4
+    col: 1
+    correctLocalPosition: {x: -0.28, y: 0.0025, z: 0.019999996}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: ece0fff8ac9856e428f48db4b7da6f90, type: 2}
+  - pieceId: 42
+    row: 4
+    col: 2
+    correctLocalPosition: {x: -0.20000002, y: 0.0025, z: 0.019999996}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: c433816563c4cc14eac8254e77ef79f2, type: 2}
+  - pieceId: 43
+    row: 4
+    col: 3
+    correctLocalPosition: {x: -0.120000005, y: 0.0025, z: 0.019999996}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 331d962a9647e6546bb465987bcaf0b1, type: 2}
+  - pieceId: 44
+    row: 4
+    col: 4
+    correctLocalPosition: {x: -0.04000002, y: 0.0025, z: 0.019999996}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 2143877908191fe44b088acb4dc7ee6a, type: 2}
+  - pieceId: 45
+    row: 4
+    col: 5
+    correctLocalPosition: {x: 0.03999999, y: 0.0025, z: 0.019999996}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: b33687d23565c3f419a8efa58259dd58, type: 2}
+  - pieceId: 46
+    row: 4
+    col: 6
+    correctLocalPosition: {x: 0.119999975, y: 0.0025, z: 0.019999996}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: b65c9821e5d3c354092185a91b01a0d5, type: 2}
+  - pieceId: 47
+    row: 4
+    col: 7
+    correctLocalPosition: {x: 0.20000002, y: 0.0025, z: 0.019999996}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 9c2383a38b069a549b739d99ee6b9d0e, type: 2}
+  - pieceId: 48
+    row: 4
+    col: 8
+    correctLocalPosition: {x: 0.27999994, y: 0.0025, z: 0.019999996}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: d6e5acd242cd349488463ee88a83525b, type: 2}
+  - pieceId: 49
+    row: 4
+    col: 9
+    correctLocalPosition: {x: 0.35999998, y: 0.0025, z: 0.019999996}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: b12ef42a0bf6e1d4e88e5fbfca280e21, type: 2}
+  - pieceId: 50
+    row: 5
+    col: 0
+    correctLocalPosition: {x: -0.36, y: 0.0025, z: -0.02000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: c7b3c7a5b8866d84685c02e89ea867bc, type: 2}
+  - pieceId: 51
+    row: 5
+    col: 1
+    correctLocalPosition: {x: -0.28, y: 0.0025, z: -0.02000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 1f28c94f51f99d74585c4630251e29bd, type: 2}
+  - pieceId: 52
+    row: 5
+    col: 2
+    correctLocalPosition: {x: -0.20000002, y: 0.0025, z: -0.02000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 241a0385ad684f4458a7fb23f1ad75ed, type: 2}
+  - pieceId: 53
+    row: 5
+    col: 3
+    correctLocalPosition: {x: -0.120000005, y: 0.0025, z: -0.02000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 5d87c78f2245dee45b41055c5176717f, type: 2}
+  - pieceId: 54
+    row: 5
+    col: 4
+    correctLocalPosition: {x: -0.04000002, y: 0.0025, z: -0.02000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: a1c5d90cd24a03946bd1b05adac84ee4, type: 2}
+  - pieceId: 55
+    row: 5
+    col: 5
+    correctLocalPosition: {x: 0.03999999, y: 0.0025, z: -0.02000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 186315d4e612d424c9499eac9e083756, type: 2}
+  - pieceId: 56
+    row: 5
+    col: 6
+    correctLocalPosition: {x: 0.119999975, y: 0.0025, z: -0.02000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 2d696ea0b51e3c44daba74c4d476d712, type: 2}
+  - pieceId: 57
+    row: 5
+    col: 7
+    correctLocalPosition: {x: 0.20000002, y: 0.0025, z: -0.02000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 44b0790505aa2d34b90e4ba1a482358f, type: 2}
+  - pieceId: 58
+    row: 5
+    col: 8
+    correctLocalPosition: {x: 0.27999994, y: 0.0025, z: -0.02000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 7bbeb203576bed646a63e765c7102ca1, type: 2}
+  - pieceId: 59
+    row: 5
+    col: 9
+    correctLocalPosition: {x: 0.35999998, y: 0.0025, z: -0.02000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 79bf7919575acad4d8bf952289bc115b, type: 2}
+  - pieceId: 60
+    row: 6
+    col: 0
+    correctLocalPosition: {x: -0.36, y: 0.0025, z: -0.060000002}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 65f58ad814d2c8542bd876aee9d5620d, type: 2}
+  - pieceId: 61
+    row: 6
+    col: 1
+    correctLocalPosition: {x: -0.28, y: 0.0025, z: -0.060000002}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 3f471ed047d76b44c89fcddefecdacf3, type: 2}
+  - pieceId: 62
+    row: 6
+    col: 2
+    correctLocalPosition: {x: -0.20000002, y: 0.0025, z: -0.060000002}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 9c1456bb99ae084488239d93205e3778, type: 2}
+  - pieceId: 63
+    row: 6
+    col: 3
+    correctLocalPosition: {x: -0.120000005, y: 0.0025, z: -0.060000002}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 3cf0e08b374e8164fadef9e076495c9d, type: 2}
+  - pieceId: 64
+    row: 6
+    col: 4
+    correctLocalPosition: {x: -0.04000002, y: 0.0025, z: -0.060000002}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 23e6d6f16735090428f9b5f4364dfe51, type: 2}
+  - pieceId: 65
+    row: 6
+    col: 5
+    correctLocalPosition: {x: 0.03999999, y: 0.0025, z: -0.060000002}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 0ca1f887fd4340e4faf77c5566749a49, type: 2}
+  - pieceId: 66
+    row: 6
+    col: 6
+    correctLocalPosition: {x: 0.119999975, y: 0.0025, z: -0.060000002}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 87e410dc6bea3cf4fad215bb87514fcc, type: 2}
+  - pieceId: 67
+    row: 6
+    col: 7
+    correctLocalPosition: {x: 0.20000002, y: 0.0025, z: -0.060000002}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 85e2571ce60c667489b1454778514ab5, type: 2}
+  - pieceId: 68
+    row: 6
+    col: 8
+    correctLocalPosition: {x: 0.27999994, y: 0.0025, z: -0.060000002}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 629dc8a976141ee4caf78b54767bc734, type: 2}
+  - pieceId: 69
+    row: 6
+    col: 9
+    correctLocalPosition: {x: 0.35999998, y: 0.0025, z: -0.060000002}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 0b0beed1b04b16b4c95bb29032174fc2, type: 2}
+  - pieceId: 70
+    row: 7
+    col: 0
+    correctLocalPosition: {x: -0.36, y: 0.0025, z: -0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 8b4e0c14f495b734ebc01d18602a5772, type: 2}
+  - pieceId: 71
+    row: 7
+    col: 1
+    correctLocalPosition: {x: -0.28, y: 0.0025, z: -0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 29ae954c16c9d3d409b4bbd09bdc34a0, type: 2}
+  - pieceId: 72
+    row: 7
+    col: 2
+    correctLocalPosition: {x: -0.20000002, y: 0.0025, z: -0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 56d89dd575ff38e4198a8f849181d327, type: 2}
+  - pieceId: 73
+    row: 7
+    col: 3
+    correctLocalPosition: {x: -0.120000005, y: 0.0025, z: -0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 180f84ac184d8924991133eb37326f3c, type: 2}
+  - pieceId: 74
+    row: 7
+    col: 4
+    correctLocalPosition: {x: -0.04000002, y: 0.0025, z: -0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: d822d332a6131224f8c0bf94bf2f0874, type: 2}
+  - pieceId: 75
+    row: 7
+    col: 5
+    correctLocalPosition: {x: 0.03999999, y: 0.0025, z: -0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: e838246d7c5639e45a400a5429a78255, type: 2}
+  - pieceId: 76
+    row: 7
+    col: 6
+    correctLocalPosition: {x: 0.119999975, y: 0.0025, z: -0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 6f4005812b35c9543bb3cd7d317f188c, type: 2}
+  - pieceId: 77
+    row: 7
+    col: 7
+    correctLocalPosition: {x: 0.20000002, y: 0.0025, z: -0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 8283082120d24ea4497e62d07ec81ca7, type: 2}
+  - pieceId: 78
+    row: 7
+    col: 8
+    correctLocalPosition: {x: 0.27999994, y: 0.0025, z: -0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 23746fb0b78a69741ac48bc8f995846d, type: 2}
+  - pieceId: 79
+    row: 7
+    col: 9
+    correctLocalPosition: {x: 0.35999998, y: 0.0025, z: -0.10000001}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 05fa45c62a261de4da3a86201d601daa, type: 2}
+  - pieceId: 80
+    row: 8
+    col: 0
+    correctLocalPosition: {x: -0.36, y: 0.0025, z: -0.14}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 344a4085e678da74499d0ade8afd1841, type: 2}
+  - pieceId: 81
+    row: 8
+    col: 1
+    correctLocalPosition: {x: -0.28, y: 0.0025, z: -0.14}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 77015b24fa7b238419fb5955c1e7605f, type: 2}
+  - pieceId: 82
+    row: 8
+    col: 2
+    correctLocalPosition: {x: -0.20000002, y: 0.0025, z: -0.14}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: f34c52acbf03a294fad7e001067b836e, type: 2}
+  - pieceId: 83
+    row: 8
+    col: 3
+    correctLocalPosition: {x: -0.120000005, y: 0.0025, z: -0.14}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 883ada236238b1d45bcb82963a2cd5cd, type: 2}
+  - pieceId: 84
+    row: 8
+    col: 4
+    correctLocalPosition: {x: -0.04000002, y: 0.0025, z: -0.14}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 37f3d43acfdbda34f8ef9b06384b0988, type: 2}
+  - pieceId: 85
+    row: 8
+    col: 5
+    correctLocalPosition: {x: 0.03999999, y: 0.0025, z: -0.14}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 6767ef6bd67a5d44e81f1d31503bd826, type: 2}
+  - pieceId: 86
+    row: 8
+    col: 6
+    correctLocalPosition: {x: 0.119999975, y: 0.0025, z: -0.14}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 1f4b3b4e7bf5c9046b71608141c6636e, type: 2}
+  - pieceId: 87
+    row: 8
+    col: 7
+    correctLocalPosition: {x: 0.20000002, y: 0.0025, z: -0.14}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 28d83aefe486fe64ab915f6a0bc2cbab, type: 2}
+  - pieceId: 88
+    row: 8
+    col: 8
+    correctLocalPosition: {x: 0.27999994, y: 0.0025, z: -0.14}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: f6b7f332d0470ce46b892481cf9c083c, type: 2}
+  - pieceId: 89
+    row: 8
+    col: 9
+    correctLocalPosition: {x: 0.35999998, y: 0.0025, z: -0.14}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 38b1649558c418b4d89ceec7bcfb0ff9, type: 2}
+  - pieceId: 90
+    row: 9
+    col: 0
+    correctLocalPosition: {x: -0.36, y: 0.0025, z: -0.18}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: f2be6b30b40d8e845ac7ef1c505bb1bc, type: 2}
+  - pieceId: 91
+    row: 9
+    col: 1
+    correctLocalPosition: {x: -0.28, y: 0.0025, z: -0.18}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: a50ac53e5b8736f4f8480d124a1a70d2, type: 2}
+  - pieceId: 92
+    row: 9
+    col: 2
+    correctLocalPosition: {x: -0.20000002, y: 0.0025, z: -0.18}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: d9b406a64178bab4abe2f37e2ba5d7db, type: 2}
+  - pieceId: 93
+    row: 9
+    col: 3
+    correctLocalPosition: {x: -0.120000005, y: 0.0025, z: -0.18}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: ab01d67dc724e594995dbcce9ac73961, type: 2}
+  - pieceId: 94
+    row: 9
+    col: 4
+    correctLocalPosition: {x: -0.04000002, y: 0.0025, z: -0.18}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: d9ab342614fe05649990a1fa163acb91, type: 2}
+  - pieceId: 95
+    row: 9
+    col: 5
+    correctLocalPosition: {x: 0.03999999, y: 0.0025, z: -0.18}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 1836fa8025806194487dc6e5a53fae72, type: 2}
+  - pieceId: 96
+    row: 9
+    col: 6
+    correctLocalPosition: {x: 0.119999975, y: 0.0025, z: -0.18}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 04a4c51a91f1cba4b974b21c5c425987, type: 2}
+  - pieceId: 97
+    row: 9
+    col: 7
+    correctLocalPosition: {x: 0.20000002, y: 0.0025, z: -0.18}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 70dcc1ec307df2b44a5c008b023ea191, type: 2}
+  - pieceId: 98
+    row: 9
+    col: 8
+    correctLocalPosition: {x: 0.27999994, y: 0.0025, z: -0.18}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: e7941f626fff2ec45841d1b1e43229fb, type: 2}
+  - pieceId: 99
+    row: 9
+    col: 9
+    correctLocalPosition: {x: 0.35999998, y: 0.0025, z: -0.18}
+    correctLocalRotation: {x: 0, y: 0, z: 0, w: 1}
+    neighborIds: 00000000000000000000000000000000
+    mesh: {fileID: 4300000, guid: 24d348d81483e9f49b3f48e8f764352f, type: 2}

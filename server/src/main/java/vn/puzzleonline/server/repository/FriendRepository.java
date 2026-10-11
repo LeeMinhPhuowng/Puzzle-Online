@@ -116,6 +116,44 @@ public class FriendRepository {
         return result;
     }
 
+    public List<FriendRequest> getSentRequests(long senderId) {
+        String sql = """
+            SELECT fr.id, fr.sender_id, a.username AS sender_username, fr.receiver_id, a2.username AS receiver_username, fr.status, fr.created_at, fr.responded_at
+            FROM friend_requests fr
+            JOIN accounts a ON a.id = fr.sender_id
+            JOIN accounts a2 ON a2.id = fr.receiver_id
+            WHERE fr.sender_id = ? AND fr.status = 'PENDING'
+            ORDER BY fr.created_at DESC
+        """;
+        List<FriendRequest> result = new ArrayList<>();
+        Connection conn = null;
+        try {
+            conn = db.getConnection();
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setLong(1, senderId);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        result.add(new FriendRequest(
+                            rs.getLong("id"),
+                            rs.getLong("sender_id"),
+                            rs.getString("sender_username"),
+                            rs.getLong("receiver_id"),
+                            rs.getString("receiver_username"),
+                            rs.getString("status"),
+                            rs.getTimestamp("created_at"),
+                            rs.getTimestamp("responded_at")
+                        ));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[FriendRepository] getSentRequests error: " + e.getMessage());
+        } finally {
+            db.releaseConnection(conn);
+        }
+        return result;
+    }
+
     public boolean acceptFriendRequest(long receiverId, long requestId) {
         Connection conn = null;
         try {

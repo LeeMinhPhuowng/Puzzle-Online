@@ -159,14 +159,15 @@ CREATE TABLE IF NOT EXISTS saved_games (
 -- =========================================================
 INSERT INTO puzzles (id, name, rows_count, cols_count, price)
 VALUES
-    ('sunset_3x3', 'Sunset (Hoàng hôn)', 3, 3, 0),
-    ('forest_4x3', 'Forest (Rừng xanh)', 4, 3, 160),
-    ('ocean_4x4', 'Ocean (Đại dương)', 4, 4, 240)
+    ('sunset_3x3', 'Sunset', 3, 3, 0),
+    ('forest_4x3', 'Forest', 3, 4, 160),
+    ('ocean_4x4', 'Ocean', 4, 4, 240),
+    ('rei_10x10', 'Ayanami Rei', 10, 10, 300)
 ON DUPLICATE KEY UPDATE name=VALUES(name), rows_count=VALUES(rows_count), cols_count=VALUES(cols_count), price=VALUES(price);
 
 INSERT INTO room_environments (id, name, description, price)
 VALUES
-    ('SCN_Nature', 'Nature Garden (Thiên nhiên xanh mát)', 'Không gian thiên nhiên trong lành', 0),
-    ('SCN_Classroom', 'Classic Classroom (Phòng học cổ điển)', 'Không gian lớp học ấm cúng', 150),
-    ('SCN_Sakura', 'Sakura Garden (Vườn hoa anh đào)', 'Không gian hoa anh đào lãng mạn', 200)
+    ('SCN_Nature', 'The Forest', 'Không gian thiên nhiên trong lành, xanh mát', 0),
+    ('SCN_Classroom', 'Classic Classroom', 'Không gian lớp học ấm cúng, hoài niệm', 150),
+    ('SCN_Sakura', 'Sakura Garden', 'Không gian hoa anh đào lãng mạn', 200)
 ON DUPLICATE KEY UPDATE name=VALUES(name), description=VALUES(description), price=VALUES(price);

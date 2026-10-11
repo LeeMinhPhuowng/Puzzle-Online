@@ -15,6 +15,11 @@ final class Wire {
     private Wire() {}
 
     static Message decode(String line) {
+        if (line == null) return new Message("", Map.of());
+        line = line.strip();
+        if (line.startsWith("\uFEFF")) {
+            line = line.substring(1).strip();
+        }
         String[] parts = line.split("\\|", -1);
         Map<String, String> values = new LinkedHashMap<>();
         for (int i = 1; i < parts.length; i++) {
@@ -28,7 +33,8 @@ final class Wire {
                 values.put(key, "");
             }
         }
-        return new Message(parts.length == 0 ? "" : parts[0].toUpperCase(Locale.ROOT), values);
+        String type = parts.length == 0 ? "" : parts[0].trim().toUpperCase(Locale.ROOT);
+        return new Message(type, values);
     }
 
     static String encode(String type, Object... keyValues) {

@@ -51,12 +51,12 @@ namespace PuzzleSystem.Core
             return mat;
         }
 
-        public static Material CreateGhostGuideMaterial(Texture2D texture, float opacity = 0.28f)
+        public static Material CreateGhostGuideMaterial(Texture texture, float opacity = 0.30f)
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (shader == null) shader = Shader.Find("Unlit/Transparent");
-            if (shader == null) shader = Shader.Find("Transparent/Diffuse");
-            if (shader == null) shader = GetLitShader();
+            Shader shader = Shader.Find("Universal Render Pipeline/Unlit")
+                         ?? Shader.Find("Unlit/Transparent")
+                         ?? Shader.Find("Transparent/Diffuse")
+                         ?? GetLitShader();
 
             Material mat = new Material(shader) { name = "Mat_PuzzleGhostGuide" };
             Color col = new Color(1f, 1f, 1f, opacity);
@@ -66,12 +66,15 @@ namespace PuzzleSystem.Core
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", col);
             if (mat.HasProperty("_Color")) mat.SetColor("_Color", col);
 
-            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f); // 1 = Transparent in URP
-            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f); // 0 = Alpha blend
+            // Cấu hình vật liệu Transparent chuẩn cho URP
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f); // 1 = Transparent
+            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f); // 0 = Alpha
+            if (mat.HasProperty("_Cull")) mat.SetFloat("_Cull", 0f); // 0 = Double-sided / No Cull
             mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
             mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
             mat.SetInt("_ZWrite", 0);
             mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
 
             return mat;
         }

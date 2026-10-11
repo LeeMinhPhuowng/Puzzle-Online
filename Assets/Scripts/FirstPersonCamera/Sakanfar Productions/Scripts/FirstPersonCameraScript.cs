@@ -1,4 +1,5 @@
 using UnityEngine;
+using PuzzleOnline.Utility;
 
 
 namespace FirstPersonCamera
@@ -80,6 +81,8 @@ namespace FirstPersonCamera
         // Private variables for mouse look
         private float xRotation = 0f;
         private float yRotation = 0f;
+        public float XRotation => xRotation;
+        public float YRotation => yRotation;
         private Vector2 currentMouseDelta;
         private Vector2 currentMouseDeltaVelocity;
         // Zoom variables
@@ -106,13 +109,11 @@ namespace FirstPersonCamera
             // Lock cursor if in gameplay, or keep unlocked if modal/menu is open
             if (PuzzleOnline.UI.PuzzleOnlineUIManager.IsModalOrChatOpen)
             {
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
+                CursorManager.Unlock();
             }
             else
             {
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
+                CursorManager.Lock();
             }
 
             // Auto-assign references if not set
@@ -229,10 +230,9 @@ namespace FirstPersonCamera
                 return;
 
             // Tự động khóa chuột khi đang trong gameplay nếu trước đó chưa khóa
-            if (Cursor.lockState != CursorLockMode.Locked)
+            if (!CursorManager.IsLocked)
             {
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
+                CursorManager.Lock();
             }
 
             // Mouse axes are already per-frame deltas; do NOT multiply by Time.deltaTime,
@@ -262,7 +262,9 @@ namespace FirstPersonCamera
 
             // Horizontal rotation (Y axis) - rotates the player body
             yRotation += mouseX;
-            if (clampHorizontalAngle && hasCenterHorizontal)
+            bool shouldClampHorizontal = clampHorizontalAngle && hasCenterHorizontal &&
+                                         (playerController != null && playerController.LockPositionAtSeat);
+            if (shouldClampHorizontal)
             {
                 float halfRange = horizontalAngleRange * 0.5f;
                 float delta = Mathf.DeltaAngle(centerHorizontalAngle, yRotation);
@@ -296,7 +298,8 @@ namespace FirstPersonCamera
                 transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
             }
 
-            PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendLook(yRotation, xRotation);
+            Vector3 playerPos = playerBody != null ? playerBody.position : transform.position;
+            PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendLook(yRotation, xRotation, playerPos);
         }
 
         public void SetLookRotation(float yaw, float pitch)
@@ -325,7 +328,8 @@ namespace FirstPersonCamera
                 transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
             }
 
-            PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendLook(yRotation, xRotation);
+            Vector3 playerPos2 = playerBody != null ? playerBody.position : transform.position;
+            PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendLook(yRotation, xRotation, playerPos2);
         }
 
         public void SetCenterHorizontalAngle(float yaw)
@@ -402,7 +406,7 @@ namespace FirstPersonCamera
         private void HandleZoom()
         {
             // Check if aiming (chỉ cho phép zoom khi chuột đang bị khóa vào góc nhìn thứ nhất)
-            isAiming = Input.GetKey(aimKey) && (!ignoreInputWhenCursorUnlocked || Cursor.lockState == CursorLockMode.Locked);
+            isAiming = Input.GetKey(aimKey) && (!ignoreInputWhenCursorUnlocked || CursorManager.IsLocked);
 
             // Check if running (from PlayerController)
             bool isPlayerRunning = playerController != null && playerController.IsRunning();
@@ -518,33 +522,29 @@ namespace FirstPersonCamera
             // Toggle cursor lock with Escape key
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                if (Cursor.lockState == CursorLockMode.Locked)
+                if (CursorManager.IsLocked)
                 {
-                    Cursor.lockState = CursorLockMode.None;
-                    Cursor.visible = true;
+                    CursorManager.Unlock();
                 }
                 else
                 {
-                    Cursor.lockState = CursorLockMode.Locked;
-                    Cursor.visible = false;
+                    CursorManager.Lock();
                 }
             }
 
             // Click chuột trái vào màn hình để khóa chuột (nếu không mở Menu/Chat/Modal)
-            if (Input.GetMouseButtonDown(0) && Cursor.lockState != CursorLockMode.Locked)
+            if (Input.GetMouseButtonDown(0) && !CursorManager.IsLocked)
             {
                 if (!PuzzleOnline.UI.PuzzleOnlineUIManager.IsModalOrChatOpen)
                 {
-                    Cursor.lockState = CursorLockMode.Locked;
-                    Cursor.visible = false;
+                    CursorManager.Lock();
                 }
             }
         }
 
         public static void SetCursorLock(bool locked)
         {
-            Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
-            Cursor.visible = !locked;
+            CursorManager.SetLocked(locked);
         }
 
         // Public methods for external control

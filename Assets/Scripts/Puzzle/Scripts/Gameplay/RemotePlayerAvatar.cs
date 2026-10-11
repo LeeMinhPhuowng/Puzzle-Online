@@ -12,6 +12,9 @@ namespace PuzzleSystem.Gameplay
         private float currentYaw;
         private float currentPitch;
 
+        private Vector3 targetPosition;
+        private bool hasTargetPosition = false;
+
         private GameObject nameplateObj;
         private TextMesh nameplateText;
 
@@ -24,14 +27,42 @@ namespace PuzzleSystem.Gameplay
             this.targetPitch = headTransform != null ? headTransform.localEulerAngles.x : 0f;
             if (this.targetPitch > 180f) this.targetPitch -= 360f;
             this.currentPitch = this.targetPitch;
+            this.targetPosition = transform.position;
+            this.hasTargetPosition = true;
 
             CreateNameplate();
+        }
+
+        public void SetAvatarColor(Color color)
+        {
+            var renderers = GetComponentsInChildren<Renderer>(true);
+            foreach (var r in renderers)
+            {
+                if (r == null) continue;
+                if (r.name.StartsWith("Eye", System.StringComparison.OrdinalIgnoreCase)) continue;
+                if (r is MeshRenderer mr)
+                {
+                    mr.material.color = color;
+                }
+            }
         }
 
         public void SetTargetLook(float yaw, float pitch)
         {
             targetYaw = yaw;
             targetPitch = pitch;
+        }
+
+        public void SetTargetPosition(Vector3 pos)
+        {
+            targetPosition = pos;
+            hasTargetPosition = true;
+        }
+
+        public void SetTargetPose(Vector3 pos, float yaw, float pitch)
+        {
+            SetTargetPosition(pos);
+            SetTargetLook(yaw, pitch);
         }
 
         private void CreateNameplate()
@@ -49,13 +80,50 @@ namespace PuzzleSystem.Gameplay
             nameplateText.alignment = TextAlignment.Center;
             nameplateText.anchor = TextAnchor.MiddleCenter;
             nameplateText.color = new Color(0.3f, 0.85f, 1f, 1f); // Cyan nameplate
+
+            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+            if (font != null)
+            {
+                nameplateText.font = font;
+                var mr = nameplateObj.GetComponent<MeshRenderer>();
+                if (mr != null) mr.material = font.material;
+            }
         }
 
         private void Update()
         {
+            // Smoothly interpolate Position with distance thresholding
+            if (hasTargetPosition)
+            {
+                float dist = Vector3.Distance(transform.position, targetPosition);
+                if (dist > 5f)
+                {
+                    transform.position = targetPosition; // Snap if too far or teleport
+                }
+                else if (dist > 0.003f)
+                {
+                    transform.position = Vector3.Lerp(transform.position, targetPosition, Time.deltaTime * 12f);
+                }
+            }
+
             // Smoothly interpolate Yaw and Pitch
-            currentYaw = Mathf.LerpAngle(currentYaw, targetYaw, Time.deltaTime * 15f);
-            currentPitch = Mathf.Lerp(currentPitch, targetPitch, Time.deltaTime * 15f);
+            if (Mathf.Abs(Mathf.DeltaAngle(currentYaw, targetYaw)) > 0.1f)
+            {
+                currentYaw = Mathf.LerpAngle(currentYaw, targetYaw, Time.deltaTime * 15f);
+            }
+            else
+            {
+                currentYaw = targetYaw;
+            }
+
+            if (Mathf.Abs(currentPitch - targetPitch) > 0.1f)
+            {
+                currentPitch = Mathf.Lerp(currentPitch, targetPitch, Time.deltaTime * 15f);
+            }
+            else
+            {
+                currentPitch = targetPitch;
+            }
 
             transform.rotation = Quaternion.Euler(0f, currentYaw, 0f);
 

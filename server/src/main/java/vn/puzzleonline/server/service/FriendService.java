@@ -88,6 +88,13 @@ public class FriendService {
     }
 
     /**
+     * Lấy danh sách lời mời đã gửi (sender_id = Alice)
+     */
+    public List<FriendRequest> getSentRequests(long senderId) {
+        return friendRepo.getSentRequests(senderId);
+    }
+
+    /**
      * 3. Bob Chấp nhận lời mời (ACCEPT) trong 1 Transaction an toàn
      */
     public boolean acceptFriendRequest(long receiverId, long requestId) {

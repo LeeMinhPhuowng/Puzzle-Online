@@ -1,9 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using PuzzleOnline.Utility;
 
-
-namespace PlayerController // Or any other appropriate namespace
+namespace PlayerController
 {
     [RequireComponent(typeof(CharacterController))]
     public class PlayerController : MonoBehaviour
@@ -32,12 +32,16 @@ namespace PlayerController // Or any other appropriate namespace
 
         [Header("Seat & Position Settings")]
         [Tooltip("Cố định vị trí tại ghế ngồi (không di chuyển WASD, chỉ xoay chuột và tương tác)")]
-        [SerializeField] private bool lockPositionAtSeat = true;
+        [SerializeField] private bool lockPositionAtSeat = false;
 
         public bool LockPositionAtSeat
         {
             get => lockPositionAtSeat;
-            set => lockPositionAtSeat = value;
+            set
+            {
+                lockPositionAtSeat = value;
+                if (controller != null) controller.enabled = !value;
+            }
         }
 
         // Movement variables
@@ -68,52 +72,45 @@ namespace PlayerController // Or any other appropriate namespace
         }
 
         /// <summary>
-        /// The player prefab can be present before PuzzleBoard is initialized (or
-        /// when a scene is tested directly in the editor).  Make seating owned by
-        /// the player itself so its editor placement can never become its in-game
-        /// spawn point.
+        /// Tự động đưa Player về đúng ghế ngồi theo thứ tự slot trong phòng chơi.
         /// </summary>
         private IEnumerator SnapToMultiplayerSeat()
         {
             yield return null;
             yield return new WaitForEndOfFrame();
 
-            var positions = GameObject.Find("Positions") ?? GameObject.Find("positions");
-            if (positions == null)
+            // Nếu đang test trực tiếp trong scene (không trong phòng chơi online), giữ nguyên vị trí đặt Player trong scene
+            var netCheck = PuzzleOnline.Network.PuzzleNetworkManager.Instance;
+            if (netCheck == null || (netCheck.CurrentRoom == null && !netCheck.IsGameActive))
             {
-                Debug.LogWarning("[PlayerController] Không tìm thấy object 'Positions'; giữ nguyên vị trí Player.");
                 yield break;
             }
 
-            var seats = new List<Transform>();
-            for (int number = 1; number <= 4; number++)
+            // 1. Nếu trong scene có PuzzleBoard, hãy để PuzzleBoard định vị chuẩn xác và đồng bộ Avatar
+            var board = FindFirstObjectByType<PuzzleSystem.Gameplay.PuzzleBoard>();
+            if (board != null)
             {
-                var seat = positions.transform.Find($"Position ({number})");
-                if (seat != null) seats.Add(seat);
+                board.PositionLocalPlayer(true);
+                yield break;
             }
 
+            var seats = SeatFinder.FindSeats();
             if (seats.Count == 0)
             {
-                Debug.LogWarning("[PlayerController] 'Positions' không có Position (1) đến Position (4).");
+                Debug.LogWarning("[PlayerController] Không tìm thấy ghế ngồi nào; giữ nguyên vị trí Player.");
                 yield break;
             }
 
             int slotIndex = 0;
             var network = PuzzleOnline.Network.PuzzleNetworkManager.Instance;
-            if (network != null && network.RoomPlayers.Count > 0)
+            if (network != null && network.RoomPlayers != null)
             {
-                for (int i = 0; i < network.RoomPlayers.Count; i++)
-                {
-                    if (network.RoomPlayers[i].Username == network.Username)
-                    {
-                        slotIndex = i;
-                        break;
-                    }
-                }
+                slotIndex = SeatFinder.GetSlotIndex(network.Username, network.RoomPlayers);
             }
 
+            Transform positionsCenter = SeatFinder.FindPositionsParent();
             Transform targetSeat = seats[slotIndex % seats.Count];
-            Vector3 lookDirection = positions.transform.position - targetSeat.position;
+            Vector3 lookDirection = (positionsCenter != null ? positionsCenter.position : transform.position) - targetSeat.position;
             lookDirection.y = 0f;
             Quaternion targetRotation = lookDirection.sqrMagnitude > 0.001f
                 ? Quaternion.LookRotation(lookDirection.normalized, Vector3.up)
@@ -129,7 +126,8 @@ namespace PlayerController // Or any other appropriate namespace
             if (controller != null) controller.enabled = false;
             transform.position = targetPosition;
             transform.rotation = targetRotation;
-            if (controller != null) controller.enabled = true;
+            Physics.SyncTransforms();
+            if (controller != null && !lockPositionAtSeat) controller.enabled = true;
         }
 
         void Update()
@@ -144,12 +142,44 @@ namespace PlayerController // Or any other appropriate namespace
 
             // Apply movement to character controller
             controller.Move(velocity * Time.deltaTime);
+
+            if (velocity.sqrMagnitude > 0.01f)
+            {
+                var cam = GetComponentInChildren<FirstPersonCamera.FirstPersonCameraScript>();
+                float yaw = cam != null ? cam.YRotation : transform.eulerAngles.y;
+                float pitch = cam != null ? cam.XRotation : 0f;
+                PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendLook(yaw, pitch, transform.position);
+            }
         }
 
         private void HandleGroundCheck()
         {
-            // Check if player is grounded
-            isGrounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
+            // Kiểm tra tiếp đất dựa trên layer "Ground" hoặc groundMask
+            int groundLayerIndex = LayerMask.NameToLayer("Ground");
+            int effectiveMask = groundLayerIndex != -1 ? (1 << groundLayerIndex) : groundMask.value;
+            if (effectiveMask == 0) effectiveMask = groundMask.value != 0 ? groundMask.value : 1; // Fallback Default nếu mask 0
+
+            Vector3 checkOrigin = transform.position;
+            float checkRadius = 0.3f;
+            float checkDist = groundDistance;
+
+            if (controller != null)
+            {
+                checkOrigin = transform.position + controller.center - new Vector3(0f, (controller.height * 0.5f) - controller.radius, 0f);
+                checkRadius = Mathf.Max(0.15f, controller.radius * 0.9f);
+                checkDist = groundDistance;
+            }
+            else if (groundCheck != null)
+            {
+                checkOrigin = groundCheck.position;
+            }
+
+            // Raycast / SphereCast xuống dưới để kiểm tra các object có Layer là Ground
+            isGrounded = Physics.CheckSphere(checkOrigin, checkRadius + checkDist, effectiveMask, QueryTriggerInteraction.Ignore);
+            if (!isGrounded && controller != null && controller.isGrounded)
+            {
+                isGrounded = true;
+            }
 
             // Reset velocity when grounded
             if (isGrounded && velocity.y < 0)
