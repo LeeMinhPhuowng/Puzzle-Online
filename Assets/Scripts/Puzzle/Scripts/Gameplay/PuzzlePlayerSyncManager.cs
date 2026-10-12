@@ -251,6 +251,7 @@ namespace PuzzleSystem.Gameplay
                     var colliders = remoteObj.GetComponentsInChildren<Collider>(true);
                     foreach (var col in colliders)
                     {
+                        col.enabled = false;
                         Destroy(col);
                     }
 
@@ -270,11 +271,30 @@ namespace PuzzleSystem.Gameplay
 
                     avatar = remoteObj.AddComponent<RemotePlayerAvatar>();
                     avatar.Setup(p.Username, headObj);
-                    avatar.SetAvatarColor(AvatarColors[i % AvatarColors.Length]);
+                    // A trigger on its own layer is queryable without pushing the local controller.
+                    var targetObject = new GameObject("PlayerTarget");
+                    targetObject.transform.SetParent(remoteObj.transform, false);
+                    targetObject.layer = LayerMask.NameToLayer("PlayerHinder");
+                    var targetCollider = targetObject.AddComponent<CapsuleCollider>();
+                    targetCollider.isTrigger = true;
+                    Bounds bodyBounds = new Bounds(remoteObj.transform.position, Vector3.zero);
+                    bool hasBody = false;
+                    foreach (var renderer in remoteObj.GetComponentsInChildren<MeshRenderer>())
+                    {
+                        if (renderer.GetComponent<TextMesh>() != null) continue;
+                        if (!hasBody) { bodyBounds = renderer.bounds; hasBody = true; }
+                        else bodyBounds.Encapsulate(renderer.bounds);
+                    }
+                    Vector3 scale = remoteObj.transform.lossyScale;
+                    targetCollider.center = remoteObj.transform.InverseTransformPoint(bodyBounds.center);
+                    targetCollider.height = Mathf.Max(0.1f, bodyBounds.size.y / Mathf.Abs(scale.y));
+                    targetCollider.radius = Mathf.Max(0.05f, Mathf.Max(bodyBounds.extents.x / Mathf.Abs(scale.x),
+                        bodyBounds.extents.z / Mathf.Abs(scale.z)));
                     _remoteAvatars[p.Username] = avatar;
 
                     Debug.Log($"<color=green>[PuzzlePlayerSyncManager] Đã tạo Avatar 3D cho bạn chơi: {p.Username}</color>");
                 }
+                avatar.SetAvatarColor(AvatarColors[i % AvatarColors.Length]);
             }
 
             // Dọn dẹp avatar của người chơi đã rời phòng

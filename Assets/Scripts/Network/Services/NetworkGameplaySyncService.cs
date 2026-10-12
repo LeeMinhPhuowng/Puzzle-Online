@@ -20,6 +20,11 @@ namespace PuzzleOnline.Network
         public bool IsGameActive { get; set; }
         public Dictionary<int, PieceInfo> ActivePieces { get; } = new Dictionary<int, PieceInfo>();
         public List<WorldItemInfo> ActiveWorldItems { get; } = new List<WorldItemInfo>();
+        private readonly Dictionary<string, string> heldItems = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private string gameInstanceId = "";
+        public bool HasRoundEnded { get; private set; }
+        public string GetHeldItem(string username) => !string.IsNullOrEmpty(username) &&
+            heldItems.TryGetValue(username, out string item) ? item : "";
 
         public event Action OnGameStarted;
         public event Action OnGameUpdated;
@@ -126,7 +131,20 @@ namespace PuzzleOnline.Network
             switch (message.Type)
             {
                 case "GAME_SNAPSHOT":
-                    bool isInitialStart = !IsGameActive;
+                    string instanceId = message.Get("instanceId");
+                    bool isInitialStart = !IsGameActive || instanceId != gameInstanceId;
+                    gameInstanceId = instanceId;
+                    HasRoundEnded = message.Get("completed") == "true";
+                    if (isInitialStart) heldItems.Clear();
+                    if (message.Data.ContainsKey("heldItems"))
+                    {
+                        heldItems.Clear();
+                        foreach (string row in message.Get("heldItems").Split('\u001e'))
+                        {
+                            string[] fields = row.Split('\u001f');
+                            if (fields.Length >= 2 && !string.IsNullOrEmpty(fields[1])) heldItems[fields[0]] = fields[1];
+                        }
+                    }
                     IsGameActive = true;
                     CurrentPuzzleId = message.Get("puzzleId", CurrentPuzzleId);
                     CurrentThemeId = message.Get("themeId", CurrentThemeId);
@@ -169,7 +187,12 @@ namespace PuzzleOnline.Network
                     string pItemType = message.Get("type");
                     string pBy = message.Get("by");
                     ActiveWorldItems.RemoveAll(it => it.Id == pItemId);
+                    heldItems[pBy] = pItemType;
                     OnItemPickedUp?.Invoke(pItemId, pItemType, pBy);
+                    return true;
+
+                case "ITEM_USED":
+                    heldItems.Remove(message.Get("by"));
                     return true;
 
                 case "PIECE_UNFIT":
@@ -214,6 +237,8 @@ namespace PuzzleOnline.Network
                     return true;
 
                 case "GAME_OVER":
+                    HasRoundEnded = true;
+                    heldItems.Clear();
                     string goResult = message.Get("result");
                     string goWinnerTeam = message.Get("winnerTeam");
                     OnGameOverResult?.Invoke(goResult, goWinnerTeam);
@@ -280,6 +305,8 @@ namespace PuzzleOnline.Network
                     return true;
 
                 case "GAME_COMPLETE":
+                    HasRoundEnded = true;
+                    heldItems.Clear();
                     string winner = message.Get("winner");
                     int bonus = message.GetInt("bonus", 50);
                     addUniqueCompleteCallback?.Invoke();
@@ -307,6 +334,9 @@ namespace PuzzleOnline.Network
 
         public void ResetGameState()
         {
+            heldItems.Clear();
+            gameInstanceId = "";
+            HasRoundEnded = false;
             IsGameActive = false;
             ActivePieces.Clear();
             ActiveWorldItems.Clear();

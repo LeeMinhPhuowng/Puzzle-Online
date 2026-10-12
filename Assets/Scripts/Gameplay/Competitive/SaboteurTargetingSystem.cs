@@ -1,180 +1,131 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 using PuzzleOnline.Network;
+using PuzzleOnline.Utility;
 using PuzzleSystem.Gameplay;
 
 namespace PuzzleOnline.Gameplay.Competitive
 {
-    /// <summary>
-    /// Hệ thống nhắm mục tiêu (Targeting System) cho Đội Phá Hoại (Saboteur).
-    /// - Nhắm Player: Đèn pin, Găng tay, Nam châm.
-    /// - Nhắm Bàn: Bình mực.
-    /// - Nhắm Mảnh ghép đã fit: Cái xẻng.
-    /// </summary>
     public class SaboteurTargetingSystem : MonoBehaviour
     {
         public static SaboteurTargetingSystem Instance { get; private set; }
-
         private Camera playerCamera;
         private string hoveredTargetPlayer = "";
-        private PuzzlePiece hoveredPlacedPiece = null;
-        private bool isHoveringTable = false;
+        private PuzzlePiece hoveredPlacedPiece;
+        private bool isHoveringTable;
+        private readonly TargetOutlineSelection selection = new TargetOutlineSelection();
 
         private void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
+            if (Instance != null && Instance != this) { Destroy(this); return; }
             Instance = this;
-        }
-
-        private void Start()
-        {
-            playerCamera = Camera.main;
         }
 
         private void Update()
         {
-            var net = PuzzleNetworkManager.Instance;
-            if (net == null || !net.IsGameActive || !net.IsSaboteur) return;
-
-            if (playerCamera == null)
-            {
-                playerCamera = Camera.main;
-                if (playerCamera == null) return;
-            }
-
-            string selectedItem = SaboteurInventoryHUD.Instance?.GetSelectedItemType();
-            if (string.IsNullOrEmpty(selectedItem))
-            {
-                hoveredTargetPlayer = "";
-                hoveredPlacedPiece = null;
-                isHoveringTable = false;
-                return;
-            }
-
-            // Thực hiện raycast từ tâm màn hình hoặc con trỏ chuột
-            Ray ray = playerCamera.ScreenPointToRay(Input.mousePosition);
             hoveredTargetPlayer = "";
             hoveredPlacedPiece = null;
             isHoveringTable = false;
+            var net = PuzzleNetworkManager.Instance;
+            var inventory = SaboteurInventoryHUD.Instance;
+            if (net == null || !net.IsGameActive || !net.IsSaboteur || net.GameplaySyncService.HasRoundEnded ||
+                inventory == null || inventory.IsUsePending || InteractionTargetQuery.IsBlocked)
+            { selection.Set(null); return; }
+            playerCamera = Camera.main;
+            string item = inventory.GetSelectedItemType();
+            if (HandleQuickSelectHover(item)) return;
+            if (string.IsNullOrEmpty(item) || !InteractionTargetQuery.TryHit(playerCamera, 25f, out var hit))
+            { selection.Set(null); return; }
 
-            RaycastHit[] hits = Physics.RaycastAll(ray, 25f);
-            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-
-            foreach (var hit in hits)
+            GameObject outlinedTarget = null;
+            if (item == "SHOVEL")
             {
-                // Kiểm tra mảnh ghép cho XẺNG
-                if (selectedItem == "SHOVEL")
-                {
-                    var piece = hit.collider.GetComponentInParent<PuzzlePiece>();
-                    if (piece != null && piece.isPlaced)
-                    {
-                        hoveredPlacedPiece = piece;
-                        break;
-                    }
-                }
-                // Kiểm tra bàn chơi cho MỰC
-                else if (selectedItem == "INK")
-                {
-                    var board = hit.collider.GetComponentInParent<PuzzleBoard>();
-                    if (board != null || hit.collider.name.ToLower().Contains("table"))
-                    {
-                        isHoveringTable = true;
-                        break;
-                    }
-                }
-                // Kiểm tra người chơi cho FLASHLIGHT, SLAP, MAGNET
-                else if (selectedItem == "FLASHLIGHT" || selectedItem == "SLAP" || selectedItem == "MAGNET")
-                {
-                    string hitPlayerName = FindPlayerNameFromHit(hit.collider);
-                    if (!string.IsNullOrEmpty(hitPlayerName) && !hitPlayerName.Equals(net.Username, StringComparison.OrdinalIgnoreCase))
-                    {
-                        hoveredTargetPlayer = hitPlayerName;
-                        break;
-                    }
-                }
+                var piece = hit.collider.GetComponentInParent<PuzzlePiece>();
+                if (piece != null && piece.isPlaced)
+                { hoveredPlacedPiece = piece; outlinedTarget = piece.gameObject; }
             }
-
-            // Xử lý click chuột trái để KÍCH HOẠT VẬT PHẨM
+            else if (item == "INK")
+            {
+                isHoveringTable = hit.collider.GetComponentInParent<PuzzleBoard>() != null ||
+                    hit.collider.name.IndexOf("table", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            else if (item == "FLASHLIGHT" || item == "SLAP" || item == "MAGNET")
+            {
+                var avatar = hit.collider.GetComponentInParent<RemotePlayerAvatar>();
+                if (avatar != null && IsValidPlayer(avatar.username))
+                { hoveredTargetPlayer = avatar.username; outlinedTarget = avatar.gameObject; }
+            }
+            selection.Set(outlinedTarget);
             if (Input.GetMouseButtonDown(0))
             {
-                ExecuteSabotage(selectedItem);
+                if (hoveredPlacedPiece != null) inventory.TryUseSelectedItem(pieceId: hoveredPlacedPiece.pieceId);
+                else if (isHoveringTable) inventory.TryUseSelectedItem();
+                else if (!string.IsNullOrEmpty(hoveredTargetPlayer)) inventory.TryUseSelectedItem(hoveredTargetPlayer);
             }
         }
 
-        private string FindPlayerNameFromHit(Collider col)
-        {
-            // Kiểm tra tên GameObject hoặc Component cha
-            Transform cur = col.transform;
-            while (cur != null)
-            {
-                // Thông thường remote player avatar có tên là username hoặc có text mesh
-                var tm = cur.GetComponentInChildren<TextMesh>();
-                if (tm != null && !string.IsNullOrEmpty(tm.text))
-                {
-                    return tm.text.Trim();
-                }
-
-                // Hoặc kiểm tra nếu GameObject chứa tên người chơi trong RoomPlayers
-                var net = PuzzleNetworkManager.Instance;
-                if (net != null && net.RoomPlayers != null)
-                {
-                    foreach (var p in net.RoomPlayers)
-                    {
-                        if (cur.name.Contains(p.Username))
-                        {
-                            return p.Username;
-                        }
-                    }
-                }
-                cur = cur.parent;
-            }
-            return "";
-        }
-
-        private void ExecuteSabotage(string itemType)
+        private bool IsValidPlayer(string username)
         {
             var net = PuzzleNetworkManager.Instance;
-            if (net == null) return;
-
-            switch (itemType)
-            {
-                case "SHOVEL":
-                    if (hoveredPlacedPiece != null)
-                    {
-                        net.UseSabotage("SHOVEL", "", hoveredPlacedPiece.pieceId);
-                        SaboteurInventoryHUD.Instance?.ConsumeSelectedItem();
-                    }
-                    break;
-
-                case "INK":
-                    if (isHoveringTable)
-                    {
-                        net.UseSabotage("INK");
-                        SaboteurInventoryHUD.Instance?.ConsumeSelectedItem();
-                    }
-                    break;
-
-                case "SLAP":
-                case "MAGNET":
-                case "FLASHLIGHT":
-                    if (!string.IsNullOrEmpty(hoveredTargetPlayer))
-                    {
-                        net.UseSabotage(itemType, hoveredTargetPlayer);
-                        SaboteurInventoryHUD.Instance?.ConsumeSelectedItem();
-                    }
-                    break;
-            }
+            if (net == null || string.Equals(net.Username, username, StringComparison.OrdinalIgnoreCase)) return false;
+            var player = net.RoomPlayers?.Find(p => string.Equals(p.Username, username, StringComparison.OrdinalIgnoreCase));
+            return player != null && player.Connected && string.Equals(player.Team, "BUILDER", StringComparison.OrdinalIgnoreCase);
         }
+
+        private bool HandleQuickSelectHover(string item)
+        {
+            if (Cursor.lockState == CursorLockMode.Locked ||
+                (item != "FLASHLIGHT" && item != "SLAP" && item != "MAGNET")) return false;
+            float scale = Screen.width / ResponsiveGUI.LogicalWidth;
+            Vector2 pointer = new Vector2(Input.mousePosition.x / scale, (Screen.height - Input.mousePosition.y) / scale);
+            float startY = ResponsiveGUI.LogicalHeight * 0.35f;
+            int count = 0;
+            foreach (var player in PuzzleNetworkManager.Instance.RoomPlayers)
+                if (IsValidPlayer(player.Username)) count++;
+            if (!new Rect(25, startY - 32, 200, 32 + count * 43).Contains(pointer)) return false;
+            selection.Set(null);
+            int index = 0;
+            foreach (var player in PuzzleNetworkManager.Instance.RoomPlayers)
+            {
+                if (!IsValidPlayer(player.Username)) continue;
+                if (new Rect(25, startY + index * 43, 200, 35).Contains(pointer) &&
+                    TryFindVisibleAvatar(player.Username, out var avatar))
+                {
+                    hoveredTargetPlayer = player.Username;
+                    selection.Set(avatar.gameObject);
+                    break;
+                }
+                index++;
+            }
+            return true;
+        }
+
+        private bool TryFindVisibleAvatar(string username, out RemotePlayerAvatar avatar)
+        {
+            avatar = null;
+            if (!IsValidPlayer(username) || playerCamera == null || PuzzleOnline.UI.PuzzleOnlineUIManager.IsModalOrChatOpen) return false;
+            var sync = FindFirstObjectByType<PuzzlePlayerSyncManager>();
+            if (sync == null || !sync.RemoteAvatars.TryGetValue(username, out avatar) || avatar == null) return false;
+            var targetCollider = avatar.GetComponentInChildren<CapsuleCollider>();
+            if (targetCollider == null) return false;
+            Vector3 target = targetCollider.bounds.center;
+            Vector3 view = playerCamera.WorldToViewportPoint(target);
+            if (view.z <= 0f || view.x < 0f || view.x > 1f || view.y < 0f || view.y > 1f) return false;
+            Vector3 direction = target - playerCamera.transform.position;
+            if (direction.magnitude > 25f) return false;
+            return InteractionTargetQuery.TryHit(playerCamera, new Ray(playerCamera.transform.position, direction.normalized),
+                direction.magnitude + 0.1f, out var hit) &&
+                hit.collider.GetComponentInParent<RemotePlayerAvatar>() == avatar;
+        }
+
+        private void OnDisable() => selection.Set(null);
+        private void OnDestroy() { if (Instance == this) Instance = null; }
 
         private void OnGUI()
         {
+            using var viewport = new ResponsiveGUI(fixedLayout: false);
             var net = PuzzleNetworkManager.Instance;
-            if (net == null || !net.IsGameActive || !net.IsSaboteur) return;
+            if (net == null || !net.IsGameActive || !net.IsSaboteur || net.GameplaySyncService.HasRoundEnded || PuzzleOnline.UI.PuzzleOnlineUIManager.IsModalOrChatOpen) return;
 
             string selectedItem = SaboteurInventoryHUD.Instance?.GetSelectedItemType();
             if (string.IsNullOrEmpty(selectedItem)) return;
@@ -182,7 +133,7 @@ namespace PuzzleOnline.Gameplay.Competitive
             // Hiển thị danh sách Thợ Xây (Builders) ở cạnh bên để click nhanh nếu không raycast trúng avatar 3D
             if (selectedItem == "FLASHLIGHT" || selectedItem == "SLAP" || selectedItem == "MAGNET")
             {
-                DrawBuildersQuickSelect(selectedItem);
+                DrawBuildersQuickSelect(selectedItem, viewport.Height);
             }
 
             // Hiển thị Crosshair / Reticle ngắm
@@ -193,8 +144,8 @@ namespace PuzzleOnline.Gameplay.Competitive
                 fontStyle = FontStyle.Bold
             };
 
-            float cx = Screen.width / 2f;
-            float cy = Screen.height / 2f;
+            float cx = viewport.Width / 2f;
+            float cy = viewport.Height / 2f;
 
             if (selectedItem == "SHOVEL")
             {
@@ -232,7 +183,7 @@ namespace PuzzleOnline.Gameplay.Competitive
             }
         }
 
-        private void DrawBuildersQuickSelect(string itemType)
+        private void DrawBuildersQuickSelect(string itemType, float viewportHeight)
         {
             var net = PuzzleNetworkManager.Instance;
             if (net == null || net.RoomPlayers == null) return;
@@ -240,7 +191,7 @@ namespace PuzzleOnline.Gameplay.Competitive
             float panelWidth = 200f;
             float panelHeight = 35f;
             float startX = 25f;
-            float startY = Screen.height * 0.35f;
+            float startY = viewportHeight * 0.35f;
 
             var titleStyle = new GUIStyle(GUI.skin.box)
             {
@@ -258,7 +209,7 @@ namespace PuzzleOnline.Gameplay.Competitive
                     continue;
 
                 // Chỉ hiển thị Builders (hoặc người chơi khác)
-                if (player.Team == "SABOTEUR") continue;
+                if (!IsValidPlayer(player.Username)) continue;
 
                 Rect btnRect = new Rect(startX, startY + (btnIndex * (panelHeight + 8f)), panelWidth, panelHeight);
                 string btnLabel = $"🎯 {player.Username}";
@@ -267,8 +218,11 @@ namespace PuzzleOnline.Gameplay.Competitive
                 GUI.backgroundColor = new Color(0.8f, 0.2f, 0.2f, 0.9f);
                 if (GUI.Button(btnRect, btnLabel))
                 {
-                    net.UseSabotage(itemType, player.Username);
-                    SaboteurInventoryHUD.Instance?.ConsumeSelectedItem();
+                    if (TryFindVisibleAvatar(player.Username, out var avatar))
+                    {
+                        selection.Set(avatar.gameObject);
+                        SaboteurInventoryHUD.Instance?.TryUseSelectedItem(player.Username);
+                    }
                 }
                 GUI.backgroundColor = oldColor;
 

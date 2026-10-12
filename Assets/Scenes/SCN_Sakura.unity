@@ -914,6 +914,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 2148383177610075376, guid: 5ba22362c79fa584bbbc649aa2358270, type: 3}
+      propertyPath: m_Layer
+      value: 10
+      objectReference: {fileID: 0}
     - target: {fileID: 4828601502406632670, guid: 5ba22362c79fa584bbbc649aa2358270, type: 3}
       propertyPath: m_Name
       value: picnic

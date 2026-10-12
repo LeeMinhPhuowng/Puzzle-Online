@@ -15,9 +15,9 @@ namespace PlayerController
         [SerializeField] private float gravity = -9.81f;
 
         [Header("Ground Check")]
-        [SerializeField] private Transform groundCheck;
         [SerializeField] private float groundDistance = 0.4f;
-        [SerializeField] private LayerMask groundMask = 1;
+        private int groundMask;
+        private readonly RaycastHit[] groundHits = new RaycastHit[16];
 
         [Header("Movement Smoothing")]
         [SerializeField] private float accelerationTime = 0.1f;
@@ -59,14 +59,8 @@ namespace PlayerController
             // Get required components
             controller = GetComponent<CharacterController>();
 
-            // Create ground check if it doesn't exist
-            if (groundCheck == null)
-            {
-                GameObject groundCheckObj = new GameObject("GroundCheck");
-                groundCheckObj.transform.SetParent(transform);
-                groundCheckObj.transform.localPosition = new Vector3(0, -controller.height / 2, 0);
-                groundCheck = groundCheckObj.transform;
-            }
+            int groundLayer = LayerMask.NameToLayer("Ground");
+            groundMask = groundLayer >= 0 ? 1 << groundLayer : 0;
 
             StartCoroutine(SnapToMultiplayerSeat());
         }
@@ -138,7 +132,7 @@ namespace PlayerController
             HandleGroundCheck();
             HandleInput();
             HandleMovement();
-            HandleGravityAndJump();
+            HandleGravityAndJump(Input.GetKeyDown(jumpKey), Time.deltaTime);
 
             // Apply movement to character controller
             controller.Move(velocity * Time.deltaTime);
@@ -154,31 +148,19 @@ namespace PlayerController
 
         private void HandleGroundCheck()
         {
-            // Kiểm tra tiếp đất dựa trên layer "Ground" hoặc groundMask
-            int groundLayerIndex = LayerMask.NameToLayer("Ground");
-            int effectiveMask = groundLayerIndex != -1 ? (1 << groundLayerIndex) : groundMask.value;
-            if (effectiveMask == 0) effectiveMask = groundMask.value != 0 ? groundMask.value : 1; // Fallback Default nếu mask 0
-
-            Vector3 checkOrigin = transform.position;
-            float checkRadius = 0.3f;
-            float checkDist = groundDistance;
-
-            if (controller != null)
+            isGrounded = false;
+            if (controller == null || groundMask == 0 || velocity.y > 0f) return;
+            GetGroundProbe(out Vector3 origin, out float radius, out float distance);
+            int count = Physics.SphereCastNonAlloc(origin, radius, Vector3.down, groundHits,
+                distance, groundMask, QueryTriggerInteraction.Ignore);
+            float minNormalY = Mathf.Cos(controller.slopeLimit * Mathf.Deg2Rad);
+            for (int i = 0; i < count; i++)
             {
-                checkOrigin = transform.position + controller.center - new Vector3(0f, (controller.height * 0.5f) - controller.radius, 0f);
-                checkRadius = Mathf.Max(0.15f, controller.radius * 0.9f);
-                checkDist = groundDistance;
-            }
-            else if (groundCheck != null)
-            {
-                checkOrigin = groundCheck.position;
-            }
-
-            // Raycast / SphereCast xuống dưới để kiểm tra các object có Layer là Ground
-            isGrounded = Physics.CheckSphere(checkOrigin, checkRadius + checkDist, effectiveMask, QueryTriggerInteraction.Ignore);
-            if (!isGrounded && controller != null && controller.isGrounded)
-            {
-                isGrounded = true;
+                if (groundHits[i].collider != controller && groundHits[i].normal.y >= minNormalY)
+                {
+                    isGrounded = true;
+                    break;
+                }
             }
 
             // Reset velocity when grounded
@@ -186,6 +168,22 @@ namespace PlayerController
             {
                 velocity.y = -2f; // Small negative value to keep grounded
             }
+        }
+
+        private void GetGroundProbe(out Vector3 origin, out float radius, out float distance)
+        {
+            Vector3 scale = transform.lossyScale;
+            float verticalScale = Mathf.Abs(scale.y);
+            float fullRadius = controller.radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z));
+            float height = Mathf.Max(controller.height * verticalScale, fullRadius * 2f);
+            // CharacterController keeps its skin/contact gap in world units, even on the 0.5-scale prefab.
+            float skin = Mathf.Max(0.01f, controller.skinWidth);
+            radius = Mathf.Max(0.01f, fullRadius - skin);
+            Vector3 feet = transform.TransformPoint(controller.center) - Vector3.up * (height * 0.5f);
+            float lift = skin + 0.01f;
+            origin = feet + Vector3.up * (radius + lift);
+            // Cover the controller's resting contact gap as well as the probe's starting lift.
+            distance = lift + skin + Mathf.Min(groundDistance * verticalScale, 0.08f * verticalScale);
         }
 
         private void HandleInput()
@@ -218,16 +216,16 @@ namespace PlayerController
             velocity.z = moveDirection.z * currentSpeed;
         }
 
-        private void HandleGravityAndJump()
+        private void HandleGravityAndJump(bool jumpPressed, float deltaTime)
         {
             // Handle jumping
-            if (Input.GetKeyDown(jumpKey) && isGrounded)
+            if (jumpPressed && isGrounded)
             {
                 velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
             }
 
             // Apply gravity
-            velocity.y += gravity * Time.deltaTime;
+            velocity.y += gravity * deltaTime;
         }
 
         // Public methods for external access
@@ -270,10 +268,13 @@ namespace PlayerController
         // Gizmos for debugging
         private void OnDrawGizmosSelected()
         {
-            if (groundCheck != null)
+            if (controller == null) controller = GetComponent<CharacterController>();
+            if (controller != null)
             {
+                GetGroundProbe(out Vector3 origin, out float radius, out float distance);
                 Gizmos.color = isGrounded ? Color.green : Color.red;
-                Gizmos.DrawWireSphere(groundCheck.position, groundDistance);
+                Gizmos.DrawWireSphere(origin, radius);
+                Gizmos.DrawWireSphere(origin + Vector3.down * distance, radius);
             }
         }
     }

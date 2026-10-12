@@ -619,10 +619,6 @@ PrefabInstance:
       propertyPath: wallCollisionMask.m_Bits
       value: 8
       objectReference: {fileID: 0}
-    - target: {fileID: 6852756826053235632, guid: 98bf62f5e74d8d247ba5b04e878d772f, type: 3}
-      propertyPath: groundCheck
-      value: 
-      objectReference: {fileID: 49813100}
     - target: {fileID: 8168538025336085924, guid: 98bf62f5e74d8d247ba5b04e878d772f, type: 3}
       propertyPath: m_Name
       value: player

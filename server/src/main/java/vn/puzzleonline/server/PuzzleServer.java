@@ -711,6 +711,26 @@ public final class PuzzleServer {
         String targetUser = message.get("targetUser");
         int targetPieceId = message.integer("pieceId", -1);
 
+        if (room.game.completed || room.game.timedOut) {
+            client.error("GAME_OVER", "Ván chơi đã kết thúc.");
+            return;
+        }
+        if (itemType == null || !Set.of("SHOVEL", "INK", "SLAP", "MAGNET", "FLASHLIGHT").contains(itemType)
+                || !itemType.equals(member.heldItem)) {
+            client.error("ITEM_NOT_OWNED", "Bạn không sở hữu vật phẩm này.");
+            return;
+        }
+        if (Set.of("SLAP", "MAGNET", "FLASHLIGHT").contains(itemType)) {
+            String requestedTarget = targetUser;
+            Member target = room.members.values().stream()
+                    .filter(m -> m.username.equalsIgnoreCase(requestedTarget)).findFirst().orElse(null);
+            if (target == null || !target.connected || target == member || !"BUILDER".equalsIgnoreCase(target.team)) {
+                client.error("INVALID_TARGET", "Hãy chọn một người chơi thuộc Đội Thợ Xây đang trong phòng.");
+                return;
+            }
+            targetUser = target.username;
+        }
+
         switch (itemType) {
             case "SHOVEL" -> {
                 if (targetPieceId < 0) {
@@ -805,6 +825,7 @@ public final class PuzzleServer {
             }
         }
         member.heldItem = "";
+        broadcast(room, "ITEM_USED", "item", itemType, "by", client.account.username);
     }
 
     private void startGame(ClientHandler client) {
@@ -1185,7 +1206,9 @@ public final class PuzzleServer {
         if (room.game != null) saveGame(room, "Bản trước khi chơi lại", false);
         room.game = createGame(room);
         room.state = "PLAYING";
-        room.members.values().forEach(member -> member.score = 0);
+        room.members.values().forEach(member -> { member.score = 0; member.heldItem = ""; });
+        room.worldItems.clear();
+        room.lastItemSpawn = System.currentTimeMillis();
         setRoomStatuses(room, "PLAYING");
         broadcastRoom(room);
         broadcastGame(room);
@@ -1291,7 +1314,7 @@ public final class PuzzleServer {
         for (Member member : room.members.values()) {
             Account account = findAccount(member.username);
             boolean isHost = member.username.equalsIgnoreCase(room.host);
-            boolean isReady = isHost || member.ready;
+            boolean isReady = member.ready;
             players.add(List.of(member.username, account == null ? "OFFLINE" : account.status, isReady,
                     member.score, member.connected, isHost, member.team != null ? member.team : "BUILDER"));
         }
@@ -1314,7 +1337,7 @@ public final class PuzzleServer {
         for (Member member : room.members.values()) {
             Account account = findAccount(member.username);
             boolean isHost = member.username.equalsIgnoreCase(room.host);
-            boolean isReady = isHost || member.ready;
+            boolean isReady = member.ready;
             players.add(List.of(member.username, account == null ? "OFFLINE" : account.status, isReady,
                     member.score, member.connected, isHost, member.team != null ? member.team : "BUILDER"));
         }
@@ -1322,12 +1345,15 @@ public final class PuzzleServer {
         for (WorldItem item : room.worldItems) {
             items.add(List.of(item.id, item.type, item.x, item.y, item.z));
         }
+        List<List<?>> inventory = new ArrayList<>();
+        for (Member member : room.members.values())
+            inventory.add(List.of(member.username, game.completed ? "" : Objects.toString(member.heldItem, "")));
         client.send("GAME_SNAPSHOT", "roomId", room.id, "roomName", room.name, "host", room.host,
                 "puzzleId", game.puzzleId, "themeId", room.themeId, "rows", game.rows, "columns", game.columns,
                 "remaining", remainingSeconds(game), "placed", placed, "total", game.pieces.size(),
-                "instanceId", game.instanceId, "hasSave", room.hasSave, "timedOut", game.timedOut,
+                "instanceId", game.instanceId, "hasSave", room.hasSave, "timedOut", game.timedOut, "completed", game.completed,
                 "gameMode", room.gameMode, "items", Wire.pack(items),
-                "pieces", Wire.pack(pieces), "players", Wire.pack(players));
+                "pieces", Wire.pack(pieces), "players", Wire.pack(players), "heldItems", Wire.pack(inventory));
     }
 
     private void broadcastGame(Room room) {

@@ -105,6 +105,17 @@ namespace PuzzleOnline.UI
             _inGameChatScroll.y = float.MaxValue;
         }
 
+        public void ResetRoomState()
+        {
+            _showInGameChat = false;
+            _showInGameMenu = false;
+            _showVictoryModal = false;
+            _showTimeoutModal = false;
+            _reconnectPrompt = null;
+            _chatInput = "";
+            ClearPasswordModal();
+        }
+
         #region InGame HUD
         public void DrawHUD(UIStyles styles, List<string> chatHistory)
         {
@@ -328,7 +339,7 @@ namespace PuzzleOnline.UI
 
             if (styles.DrawButton(new Rect(panel.x + 36 + btnW + 16, panel.y + 440, btnW, 48), "RỜI PHÒNG", false, false, true))
             {
-                _showInGameMenu = false;
+                // Keep the pause menu blocking camera input until ROOM_LEFT is confirmed.
                 net.LeaveRoom();
             }
         }

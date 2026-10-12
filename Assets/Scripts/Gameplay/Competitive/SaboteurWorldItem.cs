@@ -14,6 +14,7 @@ namespace PuzzleOnline.Gameplay.Competitive
         public string ItemType { get; private set; }
 
         private Vector3 groundPosition;
+        private float infoGroundHeight;
         private bool hasLanded = false;
         private float fallSpeed = 9f;
         private float bobTimer = 0f;
@@ -28,10 +29,15 @@ namespace PuzzleOnline.Gameplay.Competitive
         {
             ItemId = info.Id;
             ItemType = info.ItemType;
-            groundPosition = new Vector3(info.X, info.Y + 0.15f, info.Z);
+            infoGroundHeight = info.Y;
+            int groundLayer = LayerMask.NameToLayer("Ground");
+            if (groundLayer >= 0 && Physics.Raycast(new Vector3(info.X, info.Y + 100f, info.Z), Vector3.down,
+                out var floor, 200f, 1 << groundLayer, QueryTriggerInteraction.Ignore))
+                infoGroundHeight = floor.point.y;
+            groundPosition = new Vector3(info.X, infoGroundHeight + 0.15f, info.Z);
 
             // Bắt đầu từ trên cao 6 mét để rơi xuống
-            transform.position = new Vector3(info.X, info.Y + 6f, info.Z);
+            transform.position = new Vector3(info.X, infoGroundHeight + 6f, info.Z);
 
             CreateVisual();
         }
@@ -47,8 +53,20 @@ namespace PuzzleOnline.Gameplay.Competitive
             if (ItemType == "GIFTBOX")
             {
                 mainColor = new Color(1f, 0.3f, 0.3f);
-                displayName = "🎁 Hộp Quà Bí Mật";
-                LoadOrFallbackModel("Items/GiftboxModel", visualObject, 0.015f, mainColor, CreateGiftboxFallback);
+                LoadOrFallbackModel("Items/GiftboxModel", visualObject, 0.03f, mainColor, CreateGiftboxFallback);
+                Bounds bounds = new Bounds();
+                bool hasBounds = false;
+                foreach (var renderer in visualObject.GetComponentsInChildren<Renderer>())
+                {
+                    if (!hasBounds) { bounds = renderer.bounds; hasBounds = true; }
+                    else bounds.Encapsulate(renderer.bounds);
+                }
+                if (hasBounds)
+                {
+                    float size = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
+                    if (size > 0.001f) visualObject.transform.localScale *= 0.65f / size;
+                    groundPosition.y = infoGroundHeight + (transform.position.y - bounds.min.y) * (0.65f / Mathf.Max(size, 0.001f)) + 0.06f;
+                }
             }
             else if (ItemType == "FLASHLIGHT")
             {
@@ -95,20 +113,34 @@ namespace PuzzleOnline.Gameplay.Competitive
             itemLight.intensity = 1.2f;
 
             // Tạo Label chữ 3D nổi trên đầu vật phẩm
-            var labelObj = new GameObject("Label");
-            labelObj.transform.SetParent(transform, false);
-            labelObj.transform.localPosition = new Vector3(0f, 0.6f, 0f);
-            labelMesh = labelObj.AddComponent<TextMesh>();
-            labelMesh.text = displayName;
-            labelMesh.characterSize = 0.08f;
-            labelMesh.fontSize = 32;
-            labelMesh.alignment = TextAlignment.Center;
-            labelMesh.anchor = TextAnchor.MiddleCenter;
-            labelMesh.color = Color.white;
+            if (ItemType != "GIFTBOX")
+            {
+                var labelObj = new GameObject("Label");
+                labelObj.transform.SetParent(transform, false);
+                labelObj.transform.localPosition = new Vector3(0f, 0.6f, 0f);
+                labelMesh = labelObj.AddComponent<TextMesh>();
+                labelMesh.text = displayName;
+                labelMesh.characterSize = 0.08f;
+                labelMesh.fontSize = 32;
+                labelMesh.alignment = TextAlignment.Center;
+                labelMesh.anchor = TextAnchor.MiddleCenter;
+                labelMesh.color = Color.white;
+            }
 
             // Box collider để nhấp click hoặc trigger
             var col = gameObject.AddComponent<BoxCollider>();
-            col.size = new Vector3(0.8f, 1.2f, 0.8f);
+            col.size = ItemType == "GIFTBOX" ? Vector3.one * 0.8f : new Vector3(0.8f, 1.2f, 0.8f);
+            if (ItemType == "GIFTBOX")
+            {
+                var renderers = visualObject.GetComponentsInChildren<Renderer>();
+                if (renderers.Length > 0)
+                {
+                    Bounds bounds = renderers[0].bounds;
+                    foreach (var renderer in renderers) bounds.Encapsulate(renderer.bounds);
+                    col.center = transform.InverseTransformPoint(bounds.center);
+                    col.size = Vector3.Max(bounds.size, Vector3.one * 0.8f);
+                }
+            }
             col.isTrigger = true;
         }
 
@@ -203,7 +235,7 @@ namespace PuzzleOnline.Gameplay.Competitive
         {
             var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
             box.transform.SetParent(parent.transform, false);
-            box.transform.localScale = new Vector3(0.35f, 0.35f, 0.35f);
+            box.transform.localScale = Vector3.one * 0.65f;
             SetColor(box, col);
             DestroyCollider(box);
         }
@@ -340,7 +372,8 @@ namespace PuzzleOnline.Gameplay.Competitive
         private void CheckPickupInteraction()
         {
             var net = PuzzleNetworkManager.Instance;
-            if (net == null || !net.IsSaboteur) return;
+            if (net == null || !net.IsGameActive || !net.IsSaboteur || net.GameplaySyncService.HasRoundEnded ||
+                PuzzleOnline.Utility.InteractionTargetQuery.IsBlocked) return;
 
             Camera cam = Camera.main;
             if (cam == null) return;

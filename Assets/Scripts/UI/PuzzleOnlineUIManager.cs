@@ -68,12 +68,15 @@ namespace PuzzleOnline.UI
             }
 
             RegisterNetworkEvents();
+            SceneManager.sceneLoaded += HandleSceneLoaded;
+            HandleSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
         }
 
         private void OnDestroy()
         {
             if (Instance == this)
             {
+                SceneManager.sceneLoaded -= HandleSceneLoaded;
                 ServiceLocator.Unregister<IUIService>();
                 Instance = null;
             }
@@ -85,18 +88,14 @@ namespace PuzzleOnline.UI
         {
             get
             {
+                if (!CursorManager.IsGameplayScene) return true;
                 if (Instance == null) return false;
-
-                string curScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-                bool isEnvScene = curScene.StartsWith("SCN_Nature") || curScene.StartsWith("SCN_Classroom") ||
-                                  curScene.StartsWith("SCN_Sakura") || curScene.Equals("Test", System.StringComparison.OrdinalIgnoreCase);
 
                 var net = PuzzleNetworkManager.Instance;
                 if (net == null || !net.IsGameActive)
                 {
-                    // Nếu đang ở các Scene Environment để test trực tiếp thì KHÔNG coi là Modal mở (cho phép điều khiển)
-                    if (isEnvScene) return false;
-                    return true;
+                    // Direct gameplay-scene testing remains controllable without an online match.
+                    return false;
                 }
                 return Instance._inGameView.IsModalOrChatOpen;
             }
@@ -165,8 +164,16 @@ namespace PuzzleOnline.UI
             };
             net.OnRoomLeft += () =>
             {
-                _inGameView.SetTimeout(false);
+                _inGameView.ResetRoomState();
+                CursorManager.Unlock();
             };
+        }
+
+        private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (CursorManager.IsGameplayScene) return;
+            _inGameView.ResetRoomState();
+            CursorManager.Unlock();
         }
 
         private void Update()
@@ -241,10 +248,7 @@ namespace PuzzleOnline.UI
         {
             _styles.EnsureResources();
 
-            // Set virtual resolution matrix (1920x1080)
-            float scaleX = Screen.width / UIStyles.VirtualWidth;
-            float scaleY = Screen.height / UIStyles.VirtualHeight;
-            GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scaleX, scaleY, 1f));
+            using var viewport = new ResponsiveGUI(fixedLayout: true);
 
             var net = PuzzleNetworkManager.Instance;
             if (net == null) return;

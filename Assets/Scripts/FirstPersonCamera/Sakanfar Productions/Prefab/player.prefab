@@ -436,11 +436,7 @@ MonoBehaviour:
   runSpeed: 8
   jumpHeight: 2
   gravity: -9.81
-  groundCheck: {fileID: 0}
   groundDistance: 0.4
-  groundMask:
-    serializedVersion: 2
-    m_Bits: 1
   accelerationTime: 0.1
   decelerationTime: 0.1
   runKey: 304

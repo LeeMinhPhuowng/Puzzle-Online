@@ -30,6 +30,7 @@ namespace PuzzleSystem.Gameplay
         private Vector3 targetWorldPos;
         private Quaternion targetWorldRot;
         private float lastNetworkSyncTime;
+        private readonly TargetOutlineSelection selection = new TargetOutlineSelection();
 
         // Dependencies (Injectable for Unit Testing)
         private IAudioService _audioService;
@@ -57,10 +58,11 @@ namespace PuzzleSystem.Gameplay
 
         private void Update()
         {
-            if (playerCamera == null) return;
+            if (playerCamera == null) { selection.Set(null); return; }
 
-            if (UI != null && UI.IsModalOrChatOpen)
+            if ((UI != null && UI.IsModalOrChatOpen) || InteractionTargetQuery.IsBlocked)
             {
+                selection.Set(null);
                 if (heldPiece != null)
                 {
                     ReleasePiece();
@@ -68,10 +70,22 @@ namespace PuzzleSystem.Gameplay
                 return;
             }
 
+            var net = PuzzleOnline.Network.PuzzleNetworkManager.Instance;
+            PuzzlePiece hovered = null;
+            if (!IsStunned && heldPiece == null && (net == null || !net.IsSaboteur) &&
+                (net == null || !net.GameplaySyncService.HasRoundEnded) &&
+                InteractionTargetQuery.TryHit(playerCamera, maxInteractDistance, out var hoverHit, includePlayers: false))
+            {
+                var piece = hoverHit.collider.GetComponentInParent<PuzzlePiece>();
+                if (piece != null && !piece.isPlaced && !piece.isRemoteControlled &&
+                    (pieceLayer.value & (1 << piece.gameObject.layer)) != 0) hovered = piece;
+            }
+            selection.Set(hovered != null ? hovered.gameObject : null);
+
             // Xử lý bắt đầu cầm mảnh ghép
             if (Input.GetMouseButtonDown(0))
             {
-                TryPickupPiece();
+                if (hovered != null) TryPickupPiece();
             }
 
             // Khi đang cầm mảnh
@@ -166,11 +180,7 @@ namespace PuzzleSystem.Gameplay
                 return;
             }
 
-            Ray ray = GetInteractionRay();
-            RaycastHit[] hits = Physics.RaycastAll(ray, maxInteractDistance, pieceLayer);
-            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-
-            foreach (var hit in hits)
+            if (InteractionTargetQuery.TryHit(playerCamera, maxInteractDistance, out var hit, includePlayers: false))
             {
                 PuzzlePiece piece = hit.collider.GetComponentInParent<PuzzlePiece>();
                 if (piece != null && !piece.isPlaced && !piece.isRemoteControlled)
@@ -187,10 +197,11 @@ namespace PuzzleSystem.Gameplay
                     targetWorldPos = piece.transform.position;
                     targetWorldPos.y = planeY;
                     targetWorldRot = piece.transform.rotation;
-                    break;
                 }
             }
         }
+
+        private void OnDisable() => selection.Set(null);
 
         private void UpdateHeldPosition()
         {

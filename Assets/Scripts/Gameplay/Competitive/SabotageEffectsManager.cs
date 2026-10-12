@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using PuzzleOnline.Network;
 using PuzzleSystem.Gameplay;
+using PuzzleOnline.Utility;
 
 namespace PuzzleOnline.Gameplay.Competitive
 {
@@ -222,6 +223,7 @@ namespace PuzzleOnline.Gameplay.Competitive
 
         private void OnGUI()
         {
+            using var viewport = new ResponsiveGUI(fixedLayout: false);
             // Banner Thông Báo Vai Trò (Role Reveal) đầu trận đấu Cạnh Tranh
             if (roleBannerTimer > 0f && !string.IsNullOrEmpty(roleBannerTeam))
             {
@@ -233,7 +235,7 @@ namespace PuzzleOnline.Gameplay.Competitive
             {
                 Color oldColor = GUI.color;
                 GUI.color = new Color(1f, 1f, 1f, flashAlpha);
-                GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(0, 0, ResponsiveGUI.LogicalWidth, ResponsiveGUI.LogicalHeight), Texture2D.whiteTexture);
                 GUI.color = oldColor;
             }
 
@@ -246,7 +248,7 @@ namespace PuzzleOnline.Gameplay.Competitive
                     alignment = TextAnchor.MiddleCenter
                 };
                 slapStyle.normal.textColor = new Color(1f, 0.2f, 0.2f, slapHandAlpha);
-                GUI.Label(new Rect(0, 0, Screen.width, Screen.height), "💥🧤 BỐP!", slapStyle);
+                GUI.Label(new Rect(0, 0, ResponsiveGUI.LogicalWidth, ResponsiveGUI.LogicalHeight), "💥🧤 BỐP!", slapStyle);
 
                 var stunStyle = new GUIStyle(GUI.skin.label)
                 {
@@ -255,7 +257,7 @@ namespace PuzzleOnline.Gameplay.Competitive
                     fontStyle = FontStyle.Bold
                 };
                 stunStyle.normal.textColor = new Color(1f, 0.9f, 0.2f, slapHandAlpha);
-                GUI.Label(new Rect(0, Screen.height * 0.65f, Screen.width, 40f), "BẠN ĐÃ BỊ TÁT CHOÁNG! KHÔNG THỂ CẦM MẢNH GHÉP!", stunStyle);
+                GUI.Label(new Rect(0, ResponsiveGUI.LogicalHeight * 0.65f, ResponsiveGUI.LogicalWidth, 40f), "BẠN ĐÃ BỊ TÁT CHOÁNG! KHÔNG THỂ CẦM MẢNH GHÉP!", stunStyle);
             }
 
             // Banner Game Over Thắng/Thua
@@ -269,7 +271,7 @@ namespace PuzzleOnline.Gameplay.Competitive
         {
             float bannerWidth = 720f;
             float bannerHeight = 130f;
-            float bx = (Screen.width - bannerWidth) / 2f;
+            float bx = (ResponsiveGUI.LogicalWidth - bannerWidth) / 2f;
             float by = 60f;
 
             bool isSaboteur = (roleBannerTeam == "SABOTEUR");
@@ -320,8 +322,8 @@ namespace PuzzleOnline.Gameplay.Competitive
         {
             float bannerWidth = 650f;
             float bannerHeight = 160f;
-            float bx = (Screen.width - bannerWidth) / 2f;
-            float by = Screen.height * 0.25f;
+            float bx = (ResponsiveGUI.LogicalWidth - bannerWidth) / 2f;
+            float by = ResponsiveGUI.LogicalHeight * 0.25f;
 
             bool buildersWon = (gameOverResult == "BUILDERS_WIN");
 

@@ -348,12 +348,11 @@ namespace PuzzleOnline.Network
 
                 case "GAME_SNAPSHOT":
                     if (PendingReconnect != null) return;
+                    RoomPlayers.Clear();
+                    RoomPlayers.AddRange(ModelParser.Players(message.Get("players")));
                     bool handled = GameplaySyncService.HandleMessage(message, Username, score => AuthService.TotalScore += score, () => AuthService.UniquePuzzlesCompleted++);
                     if (handled)
                     {
-                        RoomPlayers.Clear();
-                        RoomPlayers.AddRange(ModelParser.Players(message.Get("players")));
-
                         // Chuyển Scene nếu cần
                         string activeScene = SceneManager.GetActiveScene().name;
                         if (!string.IsNullOrEmpty(CurrentThemeId) && activeScene != CurrentThemeId)

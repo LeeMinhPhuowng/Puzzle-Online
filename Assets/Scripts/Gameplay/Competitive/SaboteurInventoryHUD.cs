@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using PuzzleOnline.Network;
+using PuzzleOnline.Utility;
 
 namespace PuzzleOnline.Gameplay.Competitive
 {
@@ -13,7 +14,17 @@ namespace PuzzleOnline.Gameplay.Competitive
     {
         public static SaboteurInventoryHUD Instance { get; private set; }
 
-        public string CurrentItem { get; private set; } = "";
+        public string CurrentItem
+        {
+            get
+            {
+                var net = PuzzleNetworkManager.Instance;
+                return net != null && net.IsGameActive && !net.GameplaySyncService.HasRoundEnded
+                    ? net.GameplaySyncService.GetHeldItem(net.Username) : "";
+            }
+        }
+        public bool IsUsePending { get; private set; }
+        private float useRequestedAt;
 
         private string nearbyItemPrompt = "";
         private float nearbyItemTimer = 0f;
@@ -34,8 +45,9 @@ namespace PuzzleOnline.Gameplay.Competitive
             var net = PuzzleNetworkManager.Instance;
             if (net != null)
             {
-                net.OnItemPickedUp += HandleItemPickedUp;
                 net.OnGameStarted += HandleGameStarted;
+                net.OnError += HandleUseRejected;
+                net.OnGameUpdated += HandleSnapshot;
             }
         }
 
@@ -45,14 +57,16 @@ namespace PuzzleOnline.Gameplay.Competitive
             var net = PuzzleNetworkManager.Instance;
             if (net != null)
             {
-                net.OnItemPickedUp -= HandleItemPickedUp;
                 net.OnGameStarted -= HandleGameStarted;
+                net.OnError -= HandleUseRejected;
+                net.OnGameUpdated -= HandleSnapshot;
             }
         }
 
         private void HandleGameStarted()
         {
-            CurrentItem = "";
+            IsUsePending = false;
+            nearbyItemPrompt = "";
         }
 
         private void HandleItemNearby(SaboteurWorldItem item)
@@ -68,20 +82,16 @@ namespace PuzzleOnline.Gameplay.Competitive
             nearbyItemTimer = 0.25f;
         }
 
-        private void HandleItemPickedUp(string itemId, string itemType, string byUser)
+        private void HandleUseRejected(string message) => IsUsePending = false;
+        private void HandleSnapshot()
         {
-            var net = PuzzleNetworkManager.Instance;
-            if (net == null) return;
-
-            if (string.Equals(byUser, net.Username, StringComparison.OrdinalIgnoreCase))
-            {
-                CurrentItem = itemType;
-            }
+            if (Time.unscaledTime - useRequestedAt >= 8f) IsUsePending = false;
         }
 
         private void Update()
         {
             var net = PuzzleNetworkManager.Instance;
+            if (string.IsNullOrEmpty(CurrentItem)) IsUsePending = false;
             if (net == null || !net.IsGameActive || !net.IsSaboteur) return;
 
             if (nearbyItemTimer > 0f)
@@ -99,9 +109,15 @@ namespace PuzzleOnline.Gameplay.Competitive
             return CurrentItem;
         }
 
-        public void ConsumeSelectedItem()
+        public bool TryUseSelectedItem(string targetUser = "", int pieceId = -1)
         {
-            CurrentItem = "";
+            var net = PuzzleNetworkManager.Instance;
+            if (net == null || !net.Client.IsConnected || !net.IsSaboteur ||
+                string.IsNullOrEmpty(CurrentItem) || IsUsePending || InteractionTargetQuery.IsBlocked) return false;
+            IsUsePending = true;
+            useRequestedAt = Time.unscaledTime;
+            net.UseSabotage(CurrentItem, targetUser, pieceId);
+            return true;
         }
 
         public string GetItemDisplayName(string itemType)
@@ -120,6 +136,7 @@ namespace PuzzleOnline.Gameplay.Competitive
 
         private void OnGUI()
         {
+            using var viewport = new ResponsiveGUI(fixedLayout: false);
             var net = PuzzleNetworkManager.Instance;
             if (net == null || !net.IsGameActive || !net.IsSaboteur) return;
 
@@ -135,14 +152,14 @@ namespace PuzzleOnline.Gameplay.Competitive
                 promptStyle.normal.textColor = string.IsNullOrEmpty(CurrentItem) ? Color.yellow : new Color(1f, 0.5f, 0.5f);
                 float pWidth = 480f;
                 float pHeight = 44f;
-                GUI.Box(new Rect((Screen.width - pWidth) / 2f, Screen.height * 0.62f, pWidth, pHeight), nearbyItemPrompt, promptStyle);
+                GUI.Box(new Rect((viewport.Width - pWidth) / 2f, viewport.Height * 0.62f, pWidth, pHeight), nearbyItemPrompt, promptStyle);
             }
 
             // Giao diện ô vật phẩm đơn giản góc dưới màn hình
             float slotWidth = 240f;
             float slotHeight = 75f;
-            float startX = (Screen.width - slotWidth) / 2f;
-            float startY = Screen.height - slotHeight - 20f;
+            float startX = (viewport.Width - slotWidth) / 2f;
+            float startY = viewport.Height - slotHeight - 20f;
 
             var titleStyle = new GUIStyle(GUI.skin.label)
             {
@@ -195,7 +212,7 @@ namespace PuzzleOnline.Gameplay.Competitive
                     alignment = TextAnchor.MiddleCenter
                 };
                 guideStyle.normal.textColor = Color.white;
-                GUI.Box(new Rect((Screen.width - 660f) / 2f, startY - 28f, 660f, 26f), hint, guideStyle);
+                GUI.Box(new Rect((viewport.Width - 660f) / 2f, startY - 56f, 660f, 26f), hint, guideStyle);
             }
             else
             {

@@ -128,7 +128,9 @@ namespace PuzzleOnline.UI
                 net.RefreshLobby();
             }
 
-            if (navFriendsButton != null)
+            // The '+' inside Friends opens AddFriendView; it must not also hide its parent panel.
+            if (navFriendsButton != null &&
+                (friendsPanel == null || !navFriendsButton.transform.IsChildOf(friendsPanel.transform)))
                 navFriendsButton.onClick.AddListener(ToggleFriendsPanel);
         }
 

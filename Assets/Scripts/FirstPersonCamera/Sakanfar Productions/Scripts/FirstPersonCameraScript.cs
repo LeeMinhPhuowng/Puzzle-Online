@@ -185,9 +185,11 @@ namespace FirstPersonCamera
             // nhưng vẫn giữ bóng đổ (ShadowsOnly) để người chơi có bóng trên sàn và mặt bàn
             if (playerBody != null)
             {
+                var heldItems = playerBody.GetComponent<PuzzleOnline.Gameplay.Competitive.PlayerHeldItemVisuals>();
                 var meshRenderers = playerBody.GetComponentsInChildren<MeshRenderer>(true);
                 foreach (var mr in meshRenderers)
                 {
+                    if (heldItems != null && heldItems.Contains(mr.transform)) continue;
                     mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
                 }
             }

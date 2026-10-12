@@ -430,6 +430,7 @@ GameObject:
   - component: {fileID: 1610760196859773864}
   - component: {fileID: 4165346208304747380}
   - component: {fileID: 8795787086320747049}
+  - component: {fileID: 5979663224638783567}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -579,16 +580,29 @@ MonoBehaviour:
   runSpeed: 6
   jumpHeight: 2
   gravity: -9.81
-  groundCheck: {fileID: 0}
   groundDistance: 0.4
-  groundMask:
-    serializedVersion: 2
-    m_Bits: 1
   accelerationTime: 0.1
   decelerationTime: 0.1
   runKey: 304
   jumpKey: 32
   lockPositionAtSeat: 0
+--- !u!114 &5979663224638783567
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8308586926748908338}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e047e5eb76b7600428960e43caa0faf9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PuzzleOnline.Gameplay.Competitive.PlayerHeldItemVisuals
+  flashlight: {fileID: 6610213667257315436}
+  ink: {fileID: 6910951035153497660}
+  glove: {fileID: 2168100527228315955}
+  magnet: {fileID: 7413663292792955044}
+  crowbar: {fileID: 150626603750316773}
 --- !u!1 &8312529063897131502
 GameObject:
   m_ObjectHideFlags: 0
@@ -774,6 +788,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 3126af13f51f9f5408e67e10fcc92bd3, type: 3}
+--- !u!1 &150626603750316773 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 3126af13f51f9f5408e67e10fcc92bd3, type: 3}
+  m_PrefabInstance: {fileID: 1069125288179263412}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &674680905565110367 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 3126af13f51f9f5408e67e10fcc92bd3, type: 3}
@@ -869,6 +888,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: efed3914fa8dd824c9bb5e8854fd363d, type: 3}
   m_PrefabInstance: {fileID: 1357776054261568610}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &2168100527228315955 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: efed3914fa8dd824c9bb5e8854fd363d, type: 3}
+  m_PrefabInstance: {fileID: 1357776054261568610}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &5992541266212815725
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -945,6 +969,11 @@ PrefabInstance:
 --- !u!4 &6098843619026887814 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: e92ebab946ff42545bf21a503524978a, type: 3}
+  m_PrefabInstance: {fileID: 5992541266212815725}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &6910951035153497660 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: e92ebab946ff42545bf21a503524978a, type: 3}
   m_PrefabInstance: {fileID: 5992541266212815725}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &6304295792689597757
@@ -1041,6 +1070,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 49470b5d01e52ad4593d8d0f3c3c5230, type: 3}
   m_PrefabInstance: {fileID: 6304295792689597757}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &6610213667257315436 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 49470b5d01e52ad4593d8d0f3c3c5230, type: 3}
+  m_PrefabInstance: {fileID: 6304295792689597757}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &7648227818035994101
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1114,6 +1148,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: a287554b988eaa1408a0bf27560bda2e, type: 3}
+--- !u!1 &7413663292792955044 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: a287554b988eaa1408a0bf27560bda2e, type: 3}
+  m_PrefabInstance: {fileID: 7648227818035994101}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &7901934779492645406 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: a287554b988eaa1408a0bf27560bda2e, type: 3}

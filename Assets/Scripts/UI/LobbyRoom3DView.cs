@@ -204,6 +204,7 @@ namespace PuzzleOnline.UI
                 targetRawImage.texture = _renderTexture;
                 targetRawImage.color = Color.white;
             }
+            ResizePreviewTexture();
 
             // 4. Ánh sáng vàng kim hoàng gia & Ambient Light
             var lightGo = new GameObject("StageLight");
@@ -238,6 +239,26 @@ namespace PuzzleOnline.UI
             {
                 CreatePieceSlot(i, slotPositions[i]);
             }
+        }
+
+        private void LateUpdate() => ResizePreviewTexture();
+
+        private void ResizePreviewTexture()
+        {
+            if (_roomCamera == null || targetRawImage == null) return;
+            Vector2 size = targetRawImage.rectTransform.rect.size;
+            if (size.x < 1 || size.y < 1) return;
+            float factor = Mathf.Min(1536f / Mathf.Max(size.x, size.y), 1.5f);
+            int width = Mathf.Max(1, Mathf.RoundToInt(size.x * factor));
+            int height = Mathf.Max(1, Mathf.RoundToInt(size.y * factor));
+            if (_renderTexture != null && _renderTexture.width == width && _renderTexture.height == height) return;
+            var previous = _renderTexture;
+            _renderTexture = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 };
+            _renderTexture.Create();
+            _roomCamera.targetTexture = _renderTexture;
+            _roomCamera.aspect = (float)width / height;
+            targetRawImage.texture = _renderTexture;
+            if (previous != null) { previous.Release(); Destroy(previous); }
         }
 
         private void CreatePieceSlot(int index, Vector3 localPos)
@@ -504,9 +525,7 @@ namespace PuzzleOnline.UI
             // 3. Màu sắc hào quang mảnh ghép
             if (slot.pieceMaterial != null)
             {
-                Color glowColor = player.IsHost
-                    ? new Color(0.95f, 0.75f, 0.2f, 1f)  // Vàng kim chủ phòng
-                    : (player.Ready ? new Color(0.2f, 0.85f, 0.45f, 1f) : new Color(0.3f, 0.45f, 0.75f, 1f));
+                Color glowColor = player.Ready ? GetSlotColor(slot.index) : Color.black;
 
                 slot.pieceMaterial.color = glowColor;
             }
@@ -539,6 +558,15 @@ namespace PuzzleOnline.UI
             }
         }
 
+        private static readonly Color[] SlotColors =
+        {
+            new Color(0.95f, 0.75f, 0.20f),
+            new Color(0.25f, 0.75f, 0.95f),
+            new Color(0.35f, 0.85f, 0.45f),
+            new Color(0.85f, 0.40f, 0.85f)
+        };
+        private static Color GetSlotColor(int index) => SlotColors[Mathf.Clamp(index, 0, SlotColors.Length - 1)];
+
         private GameObject SpawnCleanAvatar(Transform parent, int slotIndex)
         {
             if (playerPrefab == null)
@@ -565,6 +593,17 @@ namespace PuzzleOnline.UI
             avatar.transform.localPosition = Vector3.zero;
             avatar.transform.localRotation = Quaternion.Euler(0f, 180f, 0f); // Quay mặt về hướng Camera
             avatar.transform.localScale = Vector3.one * 0.65f; // Tỉ lệ chuẩn khớp hoàn hảo với bệ đứng 1.6m
+
+            // Align the actual bottom of the visible body with the top of its stand point.
+            Bounds bodyBounds = new Bounds();
+            bool hasBounds = false;
+            foreach (var renderer in avatar.GetComponentsInChildren<Renderer>())
+            {
+                if (renderer.GetComponent<TextMesh>() != null) continue;
+                if (!hasBounds) { bodyBounds = renderer.bounds; hasBounds = true; }
+                else bodyBounds.Encapsulate(renderer.bounds);
+            }
+            if (hasBounds) avatar.transform.position += Vector3.up * (parent.position.y - bodyBounds.min.y + 0.025f);
 
             // 1. Phải gỡ bỏ các MonoBehaviour (PlayerController, FirstPersonController, v.v.) TRƯỚC!
             // Dùng DestroyImmediate để hủy ngay lập tức, giải phóng ràng buộc RequireComponent!
@@ -594,16 +633,9 @@ namespace PuzzleOnline.UI
             foreach (var al in avatar.GetComponentsInChildren<AudioListener>(true)) DestroyImmediate(al);
 
             // 3. Gán màu sắc đại diện cho nhân vật theo slot
-            Color[] slotColors = new Color[]
-            {
-                new Color(0.95f, 0.75f, 0.20f), // Vàng kim (Host)
-                new Color(0.25f, 0.75f, 0.95f), // Xanh dương Cyan
-                new Color(0.35f, 0.85f, 0.45f), // Xanh lục Emerald
-                new Color(0.85f, 0.40f, 0.85f)  // Tím hồng Violet
-            };
-            Color avatarColor = slotColors[Mathf.Clamp(slotIndex, 0, slotColors.Length - 1)];
+            Color avatarColor = GetSlotColor(slotIndex);
 
-            foreach (var r in avatar.GetComponentsInChildren<Renderer>(true))
+            foreach (var r in avatar.GetComponentsInChildren<Renderer>())
             {
                 if (r == null || r.name.StartsWith("Eye", StringComparison.OrdinalIgnoreCase)) continue;
                 if (r is MeshRenderer mr)

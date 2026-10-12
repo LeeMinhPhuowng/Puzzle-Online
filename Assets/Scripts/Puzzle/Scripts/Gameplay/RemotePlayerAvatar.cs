@@ -35,10 +35,13 @@ namespace PuzzleSystem.Gameplay
 
         public void SetAvatarColor(Color color)
         {
+            var items = GetComponent<PuzzleOnline.Gameplay.Competitive.PlayerHeldItemVisuals>();
             var renderers = GetComponentsInChildren<Renderer>(true);
             foreach (var r in renderers)
             {
                 if (r == null) continue;
+                if (r.name == "TargetOutline" || r.GetComponent<TextMesh>() != null ||
+                    (items != null && items.Contains(r.transform))) continue;
                 if (r.name.StartsWith("Eye", System.StringComparison.OrdinalIgnoreCase)) continue;
                 if (r is MeshRenderer mr)
                 {
