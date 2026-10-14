@@ -35,6 +35,9 @@ namespace PuzzleOnline.UI
 
         [SerializeField] private Button profileButton;
         [SerializeField] private Button navFriendsButton;
+        [SerializeField] private Button inviteButton;
+        private bool friendsOverlayVisible;
+        private string displayedRoomId;
         [SerializeField] private Button shopButton;
         [SerializeField] private Button settingsButton;
 
@@ -118,6 +121,7 @@ namespace PuzzleOnline.UI
 
         private void OnEnable()
         {
+            if (inviteButton != null) inviteButton.onClick.AddListener(ToggleRoomFriends);
             var net = PuzzleNetworkManager.Instance;
             if (net != null)
             {
@@ -136,6 +140,7 @@ namespace PuzzleOnline.UI
 
         private void OnDisable()
         {
+            if (inviteButton != null) inviteButton.onClick.RemoveListener(ToggleRoomFriends);
             var net = PuzzleNetworkManager.Instance;
             if (net != null)
             {
@@ -167,6 +172,10 @@ namespace PuzzleOnline.UI
         {
             var net = PuzzleNetworkManager.Instance;
             bool inRoom = net != null && net.CurrentRoom != null;
+            string roomId = net?.CurrentRoom?.Id;
+            if (roomId != displayedRoomId) friendsOverlayVisible = false;
+            displayedRoomId = roomId;
+            if (inviteButton != null) inviteButton.gameObject.SetActive(inRoom);
 
             EnsureRoomViews();
 
@@ -175,7 +184,7 @@ namespace PuzzleOnline.UI
             if (room3DView != null) room3DView.SetVisible(inRoom);
 
             // 2. Chuyển đổi giữa Danh sách bạn bè và 2 Khung Preview (Map & Puzzle)
-            if (friendsPanel != null) friendsPanel.gameObject.SetActive(!inRoom);
+            if (friendsPanel != null) friendsPanel.gameObject.SetActive(!inRoom || friendsOverlayVisible);
             if (roomPreviewPanel != null) roomPreviewPanel.SetVisible(inRoom);
 
             var mapP = FindCanvasChild("Map Preview");
@@ -183,6 +192,13 @@ namespace PuzzleOnline.UI
 
             var puzP = FindCanvasChild("Puzzle Preview");
             if (puzP != null) puzP.gameObject.SetActive(inRoom);
+            if (inRoom && friendsOverlayVisible && friendsPanel != null)
+            {
+                int previewIndex = Mathf.Max(mapP != null ? mapP.GetSiblingIndex() : 0,
+                    puzP != null ? puzP.GetSiblingIndex() : 0);
+                int index = friendsPanel.transform.GetSiblingIndex();
+                friendsPanel.transform.SetSiblingIndex(index <= previewIndex ? previewIndex : previewIndex + 1);
+            }
 
             // 3. Chuyển đổi Panel Tạo phòng
             if (createRoomPanel != null) createRoomPanel.SyncRoomState();
@@ -369,6 +385,13 @@ namespace PuzzleOnline.UI
             {
                 friendsPanel.gameObject.SetActive(!friendsPanel.gameObject.activeSelf);
             }
+        }
+
+        private void ToggleRoomFriends()
+        {
+            if (PuzzleNetworkManager.Instance?.CurrentRoom == null) return;
+            friendsOverlayVisible = !friendsOverlayVisible;
+            SyncRoomDisplay();
         }
     }
 }

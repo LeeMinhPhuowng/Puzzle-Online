@@ -335,6 +335,10 @@ public final class PuzzleServer {
         account.friends.addAll(friendRepo.getFriendUsernames(account.id));
     }
 
+    private void refreshOnlineFriends() {
+        for (ClientHandler connected : online.values()) refreshAccountFriends(connected.account);
+    }
+
     private void friendRequestSend(ClientHandler client, Wire.Message message) {
         String targetUsername = message.get("username").trim();
         FriendService.FriendResult result = friendService.sendFriendRequest(client.account.id, targetUsername);
@@ -391,7 +395,7 @@ public final class PuzzleServer {
             return;
         }
         client.send("FRIEND_REQUEST_ACCEPTED", "requestId", requestId);
-        refreshAccountFriends(client.account);
+        refreshOnlineFriends();
         sendLobby(client);
         friendRequestList(client);
         broadcastLobbyAll();
@@ -478,8 +482,8 @@ public final class PuzzleServer {
             return;
         }
         Member existing = room.members.get(client.account.username);
-        if (existing == null && "COMPLETE".equals(room.state)) {
-            client.error("GAME_COMPLETE", "Ván chơi đã kết thúc.");
+        if (existing == null && "COMPETITIVE".equalsIgnoreCase(room.gameMode) && !"WAITING".equals(room.state)) {
+            client.error("GAME_ALREADY_STARTED", "Phòng Hỗn loạn đã bắt đầu, không thể nhận thêm người chơi.");
             return;
         }
         if (existing == null && room.members.size() >= room.maxPlayers) {
@@ -1283,6 +1287,7 @@ public final class PuzzleServer {
         List<List<?>> roomRows = new ArrayList<>();
         for (Room room : rooms.values()) {
             if (room.members.isEmpty()) continue;
+            if ("COMPETITIVE".equalsIgnoreCase(room.gameMode) && !"WAITING".equals(room.state)) continue;
             roomRows.add(List.of(room.id, room.name, room.host, room.members.size(), room.maxPlayers,
                     room.state, room.puzzleId, room.hasSave, room.themeId, room.isPrivate(), room.targetTimeSeconds, room.gameMode != null ? room.gameMode : "CLASSIC"));
         }
@@ -1683,7 +1688,9 @@ public final class PuzzleServer {
     private String cleanText(String value, int maxLength) {
         if (value == null) return "";
         String clean = value.replace('\r', ' ').replace('\n', ' ').trim();
-        return clean.length() <= maxLength ? clean : clean.substring(0, maxLength);
+        // Never split a UTF-16 surrogate pair when a message ends with an emoji.
+        int count = clean.codePointCount(0, clean.length());
+        return count <= maxLength ? clean : clean.substring(0, clean.offsetByCodePoints(0, maxLength));
     }
 
     private int remainingSeconds(GameState game) {

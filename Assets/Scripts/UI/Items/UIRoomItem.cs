@@ -14,7 +14,7 @@ namespace PuzzleOnline.UI
         [Header("UI References")]
         [SerializeField] private TextMeshProUGUI roomNameText;
         [SerializeField] private TextMeshProUGUI hostNameText;
-        [SerializeField] private TextMeshProUGUI playerCountText;
+        [SerializeField] private TextMeshProUGUI roomIdText;
         [SerializeField] private TextMeshProUGUI statusText;
         [SerializeField] private GameObject lockIcon;
         [SerializeField] private Button joinButton;
@@ -42,10 +42,10 @@ namespace PuzzleOnline.UI
                 if (t != null) hostNameText = t.GetComponent<TextMeshProUGUI>();
             }
 
-            if (playerCountText == null)
+            if (roomIdText == null)
             {
-                var t = transform.Find("Count") ?? transform.Find("PlayerCount") ?? transform.Find("Players");
-                if (t != null) playerCountText = t.GetComponent<TextMeshProUGUI>();
+                var t = transform.Find("ID");
+                if (t != null) roomIdText = t.GetComponent<TextMeshProUGUI>();
             }
 
             if (statusText == null)
@@ -94,9 +94,9 @@ namespace PuzzleOnline.UI
             }
 
             // 3. Số người chơi
-            if (playerCountText != null)
+            if (roomIdText != null)
             {
-                playerCountText.text = $"{room.Count}/{room.MaxPlayers} Người";
+                roomIdText.text = $"Mã: {room.Id}";
             }
 
             // 4. Khóa mật khẩu
@@ -111,25 +111,14 @@ namespace PuzzleOnline.UI
 
             if (statusText != null)
             {
-                if (isFull)
-                {
-                    statusText.text = "Đã đầy";
-                }
-                else if (!isWaiting)
-                {
-                    statusText.text = "Đang chơi";
-                }
-                else
-                {
-                    statusText.text = "Đang chờ";
-                }
+                statusText.text = $"{(isWaiting ? "Đang chờ" : "Đang chơi")} {room.Count}/{room.MaxPlayers}";
             }
 
             // 6. Nút Tham gia / Vào bàn
             if (joinButton != null)
             {
                 bool isComplete = "COMPLETE".Equals(room.State, StringComparison.OrdinalIgnoreCase);
-                bool canJoin = !isFull && !isComplete;
+                bool canJoin = !isFull && (room.GameMode != "COMPETITIVE" || (isWaiting && !isComplete));
                 joinButton.interactable = canJoin;
                 joinButton.onClick.RemoveAllListeners();
                 joinButton.onClick.AddListener(() =>

@@ -32,10 +32,6 @@ namespace PuzzleOnline.Gameplay.Competitive
         private string gameOverTeam = "";
         private float gameOverTimer = 0f;
 
-        // Role Announcement Banner
-        private float roleBannerTimer = 0f;
-        private string roleBannerTeam = "";
-
         private void Awake()
         {
             if (Instance != null && Instance != this)
@@ -86,16 +82,6 @@ namespace PuzzleOnline.Gameplay.Competitive
             gameOverTimer = 0f;
 
             var net = PuzzleNetworkManager.Instance;
-            if (net != null && net.IsCompetitive)
-            {
-                roleBannerTeam = net.LocalPlayerTeam;
-                roleBannerTimer = 6f; // Hiển thị 6 giây đầu trận
-            }
-            else
-            {
-                roleBannerTimer = 0f;
-                roleBannerTeam = "";
-            }
 
             // Kiểm tra xem đã có sẵn các item trong snapshot ván chơi không
             if (net != null && net.ActiveWorldItems != null)
@@ -214,22 +200,11 @@ namespace PuzzleOnline.Gameplay.Competitive
                 gameOverTimer -= Time.deltaTime;
             }
 
-            // Role banner countdown
-            if (roleBannerTimer > 0f)
-            {
-                roleBannerTimer -= Time.deltaTime;
-            }
         }
 
         private void OnGUI()
         {
             using var viewport = new ResponsiveGUI(fixedLayout: false);
-            // Banner Thông Báo Vai Trò (Role Reveal) đầu trận đấu Cạnh Tranh
-            if (roleBannerTimer > 0f && !string.IsNullOrEmpty(roleBannerTeam))
-            {
-                DrawRoleRevealBanner();
-            }
-
             // Hiệu ứng Flashbang (màn hình trắng mờ dần)
             if (flashAlpha > 0f)
             {
@@ -267,56 +242,7 @@ namespace PuzzleOnline.Gameplay.Competitive
             }
         }
 
-        private void DrawRoleRevealBanner()
-        {
-            float bannerWidth = 720f;
-            float bannerHeight = 130f;
-            float bx = (ResponsiveGUI.LogicalWidth - bannerWidth) / 2f;
-            float by = 60f;
 
-            bool isSaboteur = (roleBannerTeam == "SABOTEUR");
-
-            Color oldBg = GUI.backgroundColor;
-            GUI.backgroundColor = isSaboteur ? new Color(0.6f, 0.1f, 0.7f, 0.95f) : new Color(0.1f, 0.45f, 0.8f, 0.95f);
-
-            var boxStyle = new GUIStyle(GUI.skin.box);
-            GUI.Box(new Rect(bx, by, bannerWidth, bannerHeight), GUIContent.none, boxStyle);
-            GUI.backgroundColor = oldBg;
-
-            var titleStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 28,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter
-            };
-            titleStyle.normal.textColor = isSaboteur ? new Color(1f, 0.3f, 0.3f) : new Color(1f, 0.9f, 0.2f);
-
-            string title = isSaboteur ? "😈 BẠN ĐÃ ĐƯỢC CHỈ ĐỊNH: ĐỘI PHÁ HOẠI!" : "🔨 BẠN ĐÃ ĐƯỢC CHỈ ĐỊNH: ĐỘI THỢ XÂY!";
-            GUI.Label(new Rect(bx, by + 12f, bannerWidth, 40f), title, titleStyle);
-
-            var descStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 17,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter
-            };
-            descStyle.normal.textColor = Color.white;
-
-            string desc = isSaboteur
-                ? "Di chuyển nhặt các vật phẩm rơi quanh bàn [E] để cản trở đội thợ xây!"
-                : "Tập trung phối hợp ghép hoàn thành bức tranh trước khi hết thời gian!";
-            GUI.Label(new Rect(bx, by + 58f, bannerWidth, 30f), desc, descStyle);
-
-            var subStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 14,
-                fontStyle = FontStyle.Italic,
-                alignment = TextAnchor.MiddleCenter
-            };
-            subStyle.normal.textColor = new Color(0.9f, 0.9f, 0.9f, 0.8f);
-            string hint = isSaboteur ? "Phím tắt chọn item trong túi: [1], [2], [3]" : "Cẩn thận các cạm bẫy phá hoại từ đối thủ!";
-            GUI.Label(new Rect(bx, by + 92f, bannerWidth, 25f), hint, subStyle);
-        }
 
         private void DrawGameOverBanner()
         {

@@ -6,6 +6,8 @@ using PuzzleOnline.Network;
 using PuzzleOnline.Audio;
 using PuzzleOnline.Utility;
 using PuzzleOnline.Core;
+using UnityEngine.EventSystems;
+using TMPro;
 
 namespace PuzzleOnline.UI
 {
@@ -32,6 +34,12 @@ namespace PuzzleOnline.UI
 
         // Chat & Messages
         private readonly List<string> _chatHistory = new List<string>();
+        public IReadOnlyList<string> ChatHistory => _chatHistory;
+        public event Action OnChatHistoryChanged;
+        public bool IsPauseOrDialogOpen => _inGameView.IsModalOrChatOpen;
+        public static bool IsTextInputFocused => EventSystem.current != null &&
+            EventSystem.current.currentSelectedGameObject != null &&
+            EventSystem.current.currentSelectedGameObject.TryGetComponent<TMP_InputField>(out var input) && input.isFocused;
         private string _toastMessage = "";
         private float _toastTimer = 0f;
         private string _lastToastMessage = "";
@@ -97,7 +105,7 @@ namespace PuzzleOnline.UI
                     // Direct gameplay-scene testing remains controllable without an online match.
                     return false;
                 }
-                return Instance._inGameView.IsModalOrChatOpen;
+                return Instance._inGameView.IsModalOrChatOpen || (GameplayHUD.Instance != null && GameplayHUD.Instance.IsChatOpen);
             }
         }
 
@@ -115,7 +123,7 @@ namespace PuzzleOnline.UI
                     CursorManager.Unlock();
                     string curScene = SceneManager.GetActiveScene().name;
                     // Nếu đang ở scene menu hoặc SCN_Room thì tuyệt đối không chuyển cảnh
-                    if (curScene != "SCN_Menu" && curScene != "SCN_MainMenu" && curScene != "SCN_Room")
+                    if (curScene != "SCN_Menu" && curScene != "SCN_MainMenu" && curScene != "SCN_Room" && curScene != "SCN_Lobby")
                     {
                         SceneManager.LoadScene("SCN_Room");
                     }
@@ -160,10 +168,13 @@ namespace PuzzleOnline.UI
             };
             net.OnGameStarted += () =>
             {
+                _chatHistory.Clear();
+                OnChatHistoryChanged?.Invoke();
                 _inGameView.SetTimeout(false);
             };
             net.OnRoomLeft += () =>
             {
+                GameplayHUD.Instance?.SetChatOpen(false, false);
                 _inGameView.ResetRoomState();
                 CursorManager.Unlock();
             };
@@ -183,7 +194,7 @@ namespace PuzzleOnline.UI
             // Voice toggle: Press 'V'
             if (PuzzleNetworkManager.Instance != null && PuzzleNetworkManager.Instance.Voice != null)
             {
-                if (Input.GetKeyDown(KeyCode.V) && GUIUtility.keyboardControl == 0)
+                if (Input.GetKeyDown(KeyCode.V) && GUIUtility.keyboardControl == 0 && !IsTextInputFocused)
                 {
                     bool nextState = !PuzzleNetworkManager.Instance.Voice.IsTransmitting;
                     PuzzleNetworkManager.Instance.Voice.SetTransmitting(nextState);
@@ -193,36 +204,16 @@ namespace PuzzleOnline.UI
             // In-game chat toggle: 'T'
             if (PuzzleNetworkManager.Instance != null && PuzzleNetworkManager.Instance.IsGameActive)
             {
-                if (Input.GetKeyDown(KeyCode.T) && GUIUtility.keyboardControl == 0)
+                if (GameplayHUD.Instance != null)
                 {
-                    _inGameView.ShowInGameChat = !_inGameView.ShowInGameChat;
-                    if (_inGameView.ShowInGameChat)
-                    {
-                        CursorManager.Unlock();
-                    }
-                    else
-                    {
-                        CursorManager.Lock();
-                    }
+                    var hud = GameplayHUD.Instance;
+                    if (Input.GetKeyDown(KeyCode.Escape) && hud.IsChatOpen) hud.SetChatOpen(false);
+                    else if (Input.GetKeyDown(KeyCode.T) && !IsTextInputFocused && !_inGameView.IsModalOrChatOpen)
+                        hud.SetChatOpen(!hud.IsChatOpen);
+                    else if (Input.GetKeyDown(KeyCode.Escape)) TogglePauseMenu();
+                    return;
                 }
-                else if (_inGameView.ShowInGameChat && Input.GetKeyDown(KeyCode.Escape))
-                {
-                    _inGameView.ShowInGameChat = false;
-                    CursorManager.Lock();
-                }
-                else if (Input.GetKeyDown(KeyCode.Escape))
-                {
-                    var overhead = FindFirstObjectByType<PuzzleSystem.Gameplay.PuzzleOverheadViewController>();
-                    if (overhead != null && overhead.IsOverheadToggled)
-                    {
-                        overhead.SetOverhead(false);
-                    }
-                    else
-                    {
-                        _inGameView.ShowInGameMenu = !_inGameView.ShowInGameMenu;
-                        CursorManager.SetLocked(!_inGameView.ShowInGameMenu);
-                    }
-                }
+                if (Input.GetKeyDown(KeyCode.Escape)) TogglePauseMenu();
             }
         }
 
@@ -241,8 +232,19 @@ namespace PuzzleOnline.UI
             _chatHistory.Add(message);
             if (_chatHistory.Count > 100) _chatHistory.RemoveAt(0);
             _roomView.ResetScroll();
-            _inGameView.ResetChatScroll();
+            OnChatHistoryChanged?.Invoke();
         }
+
+        public void TogglePauseMenu()
+        {
+            var overhead = FindFirstObjectByType<PuzzleSystem.Gameplay.PuzzleOverheadViewController>();
+            if (overhead != null && overhead.IsOverheadToggled) overhead.SetOverhead(false);
+            else _inGameView.ShowInGameMenu = !_inGameView.ShowInGameMenu;
+            RefreshCursor();
+        }
+
+        public static void RefreshCursor() => CursorManager.SetLocked(!IsModalOrChatOpen &&
+            !FirstPersonCamera.FirstPersonCameraScript.IsOverheadActive);
 
         private void OnGUI()
         {
@@ -289,7 +291,7 @@ namespace PuzzleOnline.UI
             }
             else if (net.IsGameActive)
             {
-                _inGameView.DrawHUD(_styles, _chatHistory);
+                _inGameView.DrawPauseMenu(_styles);
             }
 
             DrawToast();

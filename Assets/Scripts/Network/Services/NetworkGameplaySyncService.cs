@@ -22,6 +22,7 @@ namespace PuzzleOnline.Network
         public List<WorldItemInfo> ActiveWorldItems { get; } = new List<WorldItemInfo>();
         private readonly Dictionary<string, string> heldItems = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private string gameInstanceId = "";
+        public string GameInstanceId => gameInstanceId;
         public bool HasRoundEnded { get; private set; }
         public string GetHeldItem(string username) => !string.IsNullOrEmpty(username) &&
             heldItems.TryGetValue(username, out string item) ? item : "";

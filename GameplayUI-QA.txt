@@ -1,0 +1,67 @@
+Bàn giao HUD và luồng phòng — 14/10/2026
+
+Đã triển khai
+- HUD Canvas được lưu trong prefab và gắn vào SCN_Nature, SCN_Classroom,
+  SCN_Sakura, Test. Các reference SerializeField đã nối sẵn.
+- Thanh thông tin trên cùng; xếp hạng/hướng dẫn/micro bên trái; thông báo đội
+  có thời hạn và hướng dẫn vật phẩm ở giữa; chat góc dưới phải.
+- Gỡ các phần HUD/chat/item/target IMGUI tương ứng. Menu tạm dừng và các
+  hộp thoại/hiệu ứng hiện có tiếp tục dùng cơ chế cũ.
+- Join mã phòng được trim và chặn mã rỗng. RoomItem hiện ID thật và trạng thái
+  kèm số người. Dialog Canvas xử lý mật khẩu và nhận lời mời.
+- InviteBtn trong phòng bật/tắt Friends trên cả hai preview; rời phòng khôi phục lobby.
+- Server cho phép vào giữa trận CLASSIC và giữ nguyên snapshot/tiến độ; khóa
+  người mới vào COMPETITIVE đã bắt đầu, ẩn khỏi lobby, vẫn cho thành viên reconnect.
+- Đồng bộ lại friend cache khi chấp nhận kết bạn để lời mời gửi ngay được.
+- Chat dùng Noto Emoji fallback và TMP sprite asset; giữ Unicode, không cắt đôi
+  surrogate pair. Font bổ sung kèm giấy phép OFL.
+- Chat chỉ xóa khi sang trận mới, chặn điều khiển gameplay khi mở và giữ đúng con trỏ.
+
+File chính
+- Assets/Scripts/UI/GameplayHUD.cs (mới)
+- Assets/Resources/UI/GameplayHUD.prefab, HUDText.asset (mới)
+- Assets/Fonts/Emoji/ (font, fallback SDF, giấy phép)
+- Assets/Scripts/UI/RoomJoinDialogs.cs (mới)
+- Assets/Scripts/UI/LobbyUIController.cs, LobbyRoomsPanel.cs, Items/UIRoomItem.cs
+- Assets/Scripts/UI/PuzzleOnlineUIManager.cs, Views/UIInGameView.cs
+- Assets/Resources/RoomItem.prefab
+- Assets/Scenes/SCN_Room.unity, SCN_Lobby.unity và bốn scene gameplay nêu trên
+- Assets/Scripts/Network/Services/NetworkGameplaySyncService.cs
+- Assets/Scripts/FirstPersonCamera/Sakanfar Productions/Scripts/PlayerController.cs
+- Assets/Scripts/Gameplay/Competitive/SaboteurInventoryHUD.cs,
+  SaboteurTargetingSystem.cs, SabotageEffectsManager.cs
+- server/src/main/java/vn/puzzleonline/server/PuzzleServer.java
+- Assets/Editor/GameplayUISetup.cs, GameplayUIValidation.cs,
+  GameplayHUDPlayValidation.cs và server/tests/room_flow_test.py (mới)
+
+Kiểm thử đã thực sự chạy
+1. python server/tests/room_flow_test.py — PASS.
+   Ba client kết nối server Java thật với database thử nghiệm tách biệt:
+   mã phòng, mật khẩu, phòng đầy/không tồn tại, emoji hai chiều, invite/late join
+   CLASSIC giữ tiến độ, COMPETITIVE ẩn và từ chối ID/invite cũ, reconnect.
+2. python server/tests/competitive_test.py — PASS.
+   Hai client: ready, inventory do server quyết định, năm loại vật phẩm và restart.
+3. Unity 6000.3.9f1: GameplayUIValidation và PuzzleGameplayValidation — PASS.
+   Compile không có lỗi C#; kiểm tra reference HUD, một HUD/một EventSystem ở mỗi
+   scene gameplay, missing script, RoomItem, input mã phòng, glyph sáu emoji,
+   ground/jump, vật phẩm, targeting và outline.
+4. GameplayHUDPlayValidation — 29 kiểm tra Play Mode PASS.
+   Fixture mạng trong bộ nhớ kiểm tra chat/snapshot/restart, focus và cursor,
+   pause, ô mã nhận raycast, join/password/invite callback, Friends overlay.
+5. Render cùng Canvas ở 1366x768, 1920x1080, 2560x1440, 1920x1200:
+   kiểm tra nút nằm trong màn hình, ảnh có HUD thật; đã xem ảnh ở 1366x768 và
+   1920x1200 để xác nhận bố cục và emoji. Các kích thước được thay liên tiếp
+   trong fixture, không phải thao tác kéo cửa sổ bằng tay.
+
+Log và ảnh: C:\Users\Lenovo\AppData\Local\Temp\puzzle-hud-qa
+  play2.log, play-report.txt, HUD-<rộng>x<cao>.png
+Log kiểm tra gameplay cũ: C:\Users\Lenovo\AppData\Local\Temp\puzzle-gameplay-qa
+
+Giới hạn kiểm thử
+- Chưa mở hai cửa sổ Unity game và chơi thủ công qua toàn bộ luồng cùng lúc.
+- Chưa kiểm tra kéo resize cửa sổ thật và thu/phát micro trên nhiều laptop.
+- Các phép thử nhiều client ở trên là client giao thức mạng, kết hợp kiểm tra
+  Canvas và Play Mode riêng, không phải kiểm thử UI xuyên suốt hai cửa sổ.
+
+Thay đổi có sẵn của người dùng trong LiberationSans SDF - Fallback.asset đã
+được giữ nguyên đúng bản đầu phiên; không tính là thay đổi của lần triển khai này.

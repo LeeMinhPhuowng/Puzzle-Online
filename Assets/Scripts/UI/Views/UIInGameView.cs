@@ -9,15 +9,10 @@ using PuzzleOnline.Utility;
 namespace PuzzleOnline.UI
 {
     /// <summary>
-    /// Giao diện trong ván chơi (In-Game HUD, Bảng điểm, Menu tạm dừng, Chat trong trận) và các Hộp thoại (Modals: Thắng, Hết giờ, Kết nối lại, Mật khẩu).
+    /// Menu tạm dừng và các hộp thoại. GameplayHUD quản lý HUD và chat bằng Canvas.
     /// </summary>
     public class UIInGameView
     {
-        // Chat Drawer
-        private bool _showInGameChat = false;
-        private Vector2 _inGameChatScroll;
-        private string _chatInput = "";
-
         // Pause Menu
         private bool _showInGameMenu = false;
 
@@ -37,12 +32,6 @@ namespace PuzzleOnline.UI
         private string _joiningPasswordRoomId = "";
         private string _joinPasswordInput = "";
 
-        public bool ShowInGameChat
-        {
-            get => _showInGameChat;
-            set => _showInGameChat = value;
-        }
-
         public bool ShowInGameMenu
         {
             get => _showInGameMenu;
@@ -57,7 +46,6 @@ namespace PuzzleOnline.UI
                 if (_joiningPasswordRoom != null || !string.IsNullOrEmpty(_joiningPasswordRoomId)) return true;
                 if (_showVictoryModal) return true;
                 if (_showTimeoutModal) return true;
-                if (_showInGameChat) return true;
                 if (_showInGameMenu) return true;
                 return false;
             }
@@ -100,132 +88,17 @@ namespace PuzzleOnline.UI
             _joinPasswordInput = "";
         }
 
-        public void ResetChatScroll()
-        {
-            _inGameChatScroll.y = float.MaxValue;
-        }
-
         public void ResetRoomState()
         {
-            _showInGameChat = false;
             _showInGameMenu = false;
             _showVictoryModal = false;
             _showTimeoutModal = false;
             _reconnectPrompt = null;
-            _chatInput = "";
             ClearPasswordModal();
         }
 
         #region InGame HUD
-        public void DrawHUD(UIStyles styles, List<string> chatHistory)
-        {
-            var net = PuzzleNetworkManager.Instance;
-            if (net == null) return;
 
-            // Top Bar HUD
-            Rect topHud = new Rect(40, 20, 1840, 75);
-            styles.DrawSolidRect(topHud, new Color(0.10f, 0.12f, 0.18f, 0.88f));
-
-            // Room Name & Environment
-            GUI.Label(new Rect(70, 28, 450, 30), $"Phòng: {net.CurrentRoom?.Name}", styles.BoldStyle);
-            GUI.Label(new Rect(70, 58, 450, 25), $"Không gian: {UIStyles.GetThemeName(net.CurrentThemeId)}", styles.MutedStyle);
-
-            // Progress Bar
-            float pct = net.TotalPieces <= 0 ? 0f : (float)net.PlacedPieces / net.TotalPieces;
-            Rect progBg = new Rect(550, 35, 750, 26);
-            styles.DrawSolidRect(progBg, new Color(0.18f, 0.22f, 0.30f, 1f));
-            styles.DrawSolidRect(new Rect(550, 35, 750 * pct, 26), styles.AccentColor);
-            GUI.Label(new Rect(550, 35, 750, 26), $"{net.PlacedPieces}/{net.TotalPieces} Mảnh ({Mathf.RoundToInt(pct * 100)}%)", styles.BadgeStyle);
-
-            // Timer
-            if (net.RemainingSeconds < 0)
-            {
-                GUI.Label(new Rect(1330, 30, 160, 45), "∞ Vô hạn", styles.TitleStyle);
-            }
-            else
-            {
-                int m = net.RemainingSeconds / 60;
-                int s = net.RemainingSeconds % 60;
-                GUI.Label(new Rect(1330, 30, 160, 45), $"{m:00}:{s:00}", styles.TitleStyle);
-            }
-
-            // Voice Status Indicator
-            if (net.Voice != null && net.Voice.IsTransmitting)
-            {
-                styles.DrawSolidRect(new Rect(1510, 38, 14, 14), styles.SuccessColor);
-                GUI.Label(new Rect(1535, 34, 160, 30), "MIC BẬT [V]", styles.BoldStyle);
-            }
-            else
-            {
-                GUI.Label(new Rect(1510, 34, 160, 30), "MIC TẮT [V]", styles.MutedStyle);
-            }
-
-            // Quick Menu button (Leave / Save)
-            if (styles.DrawButton(new Rect(1690, 32, 160, 44), "Rời phòng", false, false, true))
-            {
-                net.LeaveRoom();
-            }
-
-            // Player Scoreboard Panel (Top Left)
-            Rect scorePanel = new Rect(40, 110, 320, 50 + net.RoomPlayers.Count * 45);
-            styles.DrawSolidRect(scorePanel, new Color(0.10f, 0.12f, 0.18f, 0.85f));
-            GUI.Label(new Rect(55, 120, 290, 28), "BẢNG ĐIỂM", styles.BoldStyle);
-            for (int i = 0; i < net.RoomPlayers.Count; i++)
-            {
-                var p = net.RoomPlayers[i];
-                GUI.Label(new Rect(55, 155 + i * 45, 190, 30), p.Username + (p.IsHost ? " ★" : ""), styles.BodyStyle);
-                GUI.Label(new Rect(250, 155 + i * 45, 90, 30), $"{p.Score} đ", styles.BoldStyle);
-            }
-
-            // Bottom Right Chat Drawer
-            if (_showInGameChat)
-            {
-                Rect chatPanel = new Rect(1360, 600, 520, 440);
-                GUI.Box(chatPanel, GUIContent.none, styles.CardStyle);
-                GUI.Label(new Rect(1380, 615, 300, 30), "Trò chuyện trong ván [T]", styles.BoldStyle);
-                DrawChatBox(styles, new Rect(1380, 650, 480, 370), chatHistory);
-            }
-            else
-            {
-                if (styles.DrawButton(new Rect(1720, 1010, 160, 44), "Chat [T]", false))
-                {
-                    _showInGameChat = true;
-                    CursorManager.Unlock();
-                }
-            }
-
-            if (_showInGameMenu)
-            {
-                DrawInGamePauseMenu(styles, net);
-            }
-
-            if (!_showInGameMenu)
-            {
-                bool isOverhead = FirstPersonCamera.FirstPersonCameraScript.IsOverheadActive;
-
-                if (!isOverhead)
-                {
-                    // Screen Center Reticle / White Dot (Chỉ hiện khi ở góc nhìn thứ nhất FPS)
-                    float cx = UIStyles.VirtualWidth * 0.5f;
-                    float cy = UIStyles.VirtualHeight * 0.5f;
-                    styles.DrawSolidRect(new Rect(cx - 5, cy - 5, 10, 10), new Color(0f, 0f, 0f, 0.7f));
-                    styles.DrawSolidRect(new Rect(cx - 3, cy - 3, 6, 6), Color.white);
-
-                    // Controls Helper Bar (Bottom Center) - Chế độ FPS
-                    Rect ctrlBar = new Rect(UIStyles.VirtualWidth * 0.5f - 480, 1015, 960, 40);
-                    styles.DrawSolidRect(ctrlBar, new Color(0.10f, 0.12f, 0.18f, 0.85f));
-                    GUI.Label(ctrlBar, "⚡ [Z] Góc nhìn trên cao (Top-down)  •  [R / Cuộn chuột] Xoay 90°  •  [Chuột trái] Cầm / Thả  •  [V] Voice Chat", styles.BadgeStyle);
-                }
-                else
-                {
-                    // Controls Helper Bar (Bottom Center) - Chế độ góc nhìn trên cao Overhead
-                    Rect ctrlBar = new Rect(UIStyles.VirtualWidth * 0.5f - 490, 1015, 980, 40);
-                    styles.DrawSolidRect(ctrlBar, new Color(0.08f, 0.20f, 0.28f, 0.90f));
-                    styles.DrawBorder(ctrlBar, 1.5f, styles.AccentColor);
-                    GUI.Label(ctrlBar, "🎯 [Z / ESC] Trở về góc nhìn thứ nhất  •  [Chuột trái] Nhấc / Kéo / Thả mảnh  •  [R / Cuộn chuột] Xoay 90°", styles.BadgeStyle);
-                }
-            }
-        }
 
         private void DrawInGamePauseMenu(UIStyles styles, PuzzleNetworkManager net)
         {
@@ -344,41 +217,12 @@ namespace PuzzleOnline.UI
             }
         }
 
-        private void DrawChatBox(UIStyles styles, Rect rect, List<string> chatHistory)
+        public void DrawPauseMenu(UIStyles styles)
         {
-            Rect logRect = new Rect(rect.x, rect.y, rect.width, rect.height - 80);
-            styles.DrawSolidRect(logRect, new Color(0.10f, 0.11f, 0.16f, 0.9f));
-
-            Rect viewRect = new Rect(0, 0, rect.width - 30, Mathf.Max(logRect.height, chatHistory.Count * 28));
-            _inGameChatScroll = GUI.BeginScrollView(logRect, _inGameChatScroll, viewRect);
-            for (int i = 0; i < chatHistory.Count; i++)
-            {
-                GUI.Label(new Rect(10, i * 28 + 4, rect.width - 40, 25), chatHistory[i], styles.BodyStyle);
-            }
-            GUI.EndScrollView();
-
-            // Emoji Bar
-            string[] emojis = { "😊", "👍", "🎉", "🔥", "❤️", "👏" };
-            for (int e = 0; e < emojis.Length; e++)
-            {
-                if (GUI.Button(new Rect(rect.x + e * 42, rect.y + rect.height - 75, 38, 30), emojis[e], styles.BtnStyle))
-                {
-                    PuzzleNetworkManager.Instance?.SendEmoji(emojis[e]);
-                }
-            }
-
-            // Input Row
-            _chatInput = GUI.TextField(new Rect(rect.x, rect.y + rect.height - 38, rect.width - 90, 38), _chatInput, styles.InputStyle);
-            if (GUI.Button(new Rect(rect.x + rect.width - 80, rect.y + rect.height - 38, 80, 38), "Gửi", styles.PrimaryBtnStyle) ||
-                (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.Return && GUIUtility.keyboardControl != 0))
-            {
-                if (!string.IsNullOrWhiteSpace(_chatInput))
-                {
-                    PuzzleNetworkManager.Instance?.SendChat(_chatInput.Trim());
-                    _chatInput = "";
-                }
-            }
+            if (_showInGameMenu) DrawInGamePauseMenu(styles, PuzzleNetworkManager.Instance);
         }
+
+
         #endregion
 
         #region Modals

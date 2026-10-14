@@ -129,6 +129,16 @@ namespace PlayerController
             if (FirstPersonCamera.FirstPersonCameraScript.IsOverheadActive) return;
             if (lockPositionAtSeat) return;
 
+            if (PuzzleOnline.UI.PuzzleOnlineUIManager.IsModalOrChatOpen)
+            {
+                currentInputVector = Vector2.zero;
+                velocity.x = velocity.z = 0;
+                HandleGroundCheck();
+                HandleGravityAndJump(false, Time.deltaTime);
+                controller.Move(velocity * Time.deltaTime);
+                return;
+            }
+
             HandleGroundCheck();
             HandleInput();
             HandleMovement();

@@ -119,8 +119,9 @@ namespace PuzzleOnline.UI
 
         public void SetRooms(List<RoomInfo> rooms)
         {
-            _cachedRooms = rooms != null ? new List<RoomInfo>(rooms) : new List<RoomInfo>();
-            RenderRooms(_cachedRooms);
+            _cachedRooms = rooms != null ? rooms.FindAll(r => r != null &&
+                !(r.GameMode == "COMPETITIVE" && r.State != "WAITING")) : new List<RoomInfo>();
+            OnRoomSearchChanged(roomSearchInput != null ? roomSearchInput.text : "");
         }
 
         private void RenderRooms(List<RoomInfo> rooms)
@@ -178,17 +179,13 @@ namespace PuzzleOnline.UI
 
             if (roomQuickJoinInput == null || string.IsNullOrWhiteSpace(roomQuickJoinInput.text))
             {
-                if (_cachedRooms != null && _cachedRooms.Count > 0)
-                {
-                    PuzzleNetworkManager.Instance?.JoinRoom(_cachedRooms[0].Id);
-                }
+                PuzzleOnlineUIManager.Instance?.ShowToast("Vui lòng nhập mã phòng.");
                 return;
             }
 
             string inputVal = roomQuickJoinInput.text.Trim();
             var room = _cachedRooms.Find(r =>
-                r.Id.Equals(inputVal, StringComparison.OrdinalIgnoreCase) ||
-                (r.Name != null && r.Name.Equals(inputVal, StringComparison.OrdinalIgnoreCase))
+                string.Equals(r.Id, inputVal, StringComparison.OrdinalIgnoreCase)
             );
 
             if (room != null)
