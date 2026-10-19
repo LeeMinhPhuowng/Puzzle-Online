@@ -6,6 +6,8 @@ namespace FirstPersonCamera
 {
     public class FirstPersonCameraScript : MonoBehaviour
     {
+        public static FirstPersonCameraScript Instance { get; private set; }
+
         [Header("Mouse Look Settings")]
         [Tooltip("Degrees per mouse-axis unit. Frame-rate independent.")]
         [SerializeField] private float mouseSensitivityX = 2f;
@@ -99,6 +101,22 @@ namespace FirstPersonCamera
         private float landingShakeTimer;
         private float landingShakeSeed;
         private bool wasGrounded = true;
+
+        // External impact shake variables (e.g. Slap Glove hit)
+        [Header("External Impact Shake Settings")]
+        [SerializeField] private float externalShakeIntensity = 0f;
+        [SerializeField] private float externalShakeDuration = 0.5f;
+        private float externalShakeTimer = 0f;
+        private float externalShakeSeed = 0f;
+        private Vector3 cameraRotationalShakeOffset = Vector3.zero;
+
+        public void TriggerExternalShake(float intensity = 0.85f, float duration = 0.65f)
+        {
+            externalShakeIntensity = intensity;
+            externalShakeDuration = Mathf.Max(0.05f, duration);
+            externalShakeTimer = externalShakeDuration;
+            externalShakeSeed = Random.value * 100f;
+        }
 
         // Wall collision variables
         private float currentCollisionDistance;
@@ -209,10 +227,16 @@ namespace FirstPersonCamera
 
         private void Awake()
         {
+            Instance = this;
             IsOverheadActive = false;
             // Giới hạn góc quay theo phương thẳng đứng tối đa 180 độ (-89.5 đến +89.5)
             minVerticalAngle = Mathf.Clamp(minVerticalAngle, -89.5f, 0f);
             maxVerticalAngle = Mathf.Clamp(maxVerticalAngle, 0f, 89.5f);
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
         }
 
         private void OnValidate()
@@ -345,6 +369,11 @@ namespace FirstPersonCamera
             if (IsOverheadActive) return;
             // Apply camera shake + wall collision to local position
             ApplyCameraPosition();
+
+            if (cameraRotationalShakeOffset.sqrMagnitude > 0.0001f)
+            {
+                transform.localRotation *= Quaternion.Euler(cameraRotationalShakeOffset);
+            }
         }
 
         private void ApplyCameraPosition()
@@ -439,9 +468,31 @@ namespace FirstPersonCamera
 
         private void HandleCameraShake()
         {
+            // --- External impulse shake (e.g. Slap Glove hit, explosions) ---
+            Vector3 externalOffset = Vector3.zero;
+            Vector3 externalRotOffset = Vector3.zero;
+            if (externalShakeTimer > 0f)
+            {
+                externalShakeTimer -= Time.deltaTime;
+                float decay = Mathf.Clamp01(externalShakeTimer / externalShakeDuration);
+                float amp = decay * decay * externalShakeIntensity; // ease-out
+                float n = Time.time * 35f;
+                float ex = (Mathf.PerlinNoise(n, externalShakeSeed) - 0.5f) * 2f;
+                float ey = (Mathf.PerlinNoise(externalShakeSeed, n) - 0.5f) * 2f;
+                float ez = (Mathf.PerlinNoise(n + 15f, externalShakeSeed + 15f) - 0.5f) * 2f;
+                externalOffset = new Vector3(ex * amp * 0.7f, ey * amp * 0.9f, ez * amp * 0.5f);
+
+                // Rotational kick (roll, pitch, yaw)
+                float rx = (Mathf.PerlinNoise(n + 8f, externalShakeSeed) - 0.5f) * 2f * amp * 12f;
+                float ry = (Mathf.PerlinNoise(externalShakeSeed, n + 8f) - 0.5f) * 2f * amp * 10f;
+                float rz = (Mathf.PerlinNoise(n + 25f, externalShakeSeed + 25f) - 0.5f) * 2f * amp * 16f;
+                externalRotOffset = new Vector3(rx, ry, rz);
+            }
+            cameraRotationalShakeOffset = externalRotOffset;
+
             if (!enableCameraShake || playerController == null)
             {
-                cameraShakeOffset = Vector3.MoveTowards(cameraShakeOffset, Vector3.zero, Time.deltaTime);
+                cameraShakeOffset = Vector3.MoveTowards(cameraShakeOffset, externalOffset, Time.deltaTime);
                 return;
             }
 
@@ -507,7 +558,7 @@ namespace FirstPersonCamera
                 landingOffset = new Vector3(lx * amp * 0.5f, ly * amp, 0f);
             }
 
-            cameraShakeOffset = bobOffset + landingOffset;
+            cameraShakeOffset = bobOffset + landingOffset + externalOffset;
         }
 
         private void HandleCursorToggle()

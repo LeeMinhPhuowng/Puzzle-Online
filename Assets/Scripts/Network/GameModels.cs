@@ -96,6 +96,7 @@ namespace PuzzleOnline.Network
         public int Rotation;
         public bool Placed;
         public string LockedBy;
+        public int Points = 1;
     }
 
     [Serializable]
@@ -265,7 +266,8 @@ namespace PuzzleOnline.Network
                     Y = Float(fields[4]),
                     Rotation = Int(fields[5]),
                     Placed = Bool(fields[6]),
-                    LockedBy = fields[7]
+                    LockedBy = fields[7],
+                    Points = fields.Length >= 9 ? Int(fields[8]) : 1
                 });
             }
             return output;

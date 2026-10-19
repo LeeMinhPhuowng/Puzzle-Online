@@ -132,6 +132,11 @@ namespace PuzzleSystem.Gameplay
 
                 if (serverPieces.TryGetValue(piece.pieceId, out var info))
                 {
+                    if (info.Points > 0)
+                    {
+                        piece.SetPoints(info.Points);
+                    }
+
                     if (info.Placed)
                     {
                         if (!piece.isPlaced)
@@ -165,6 +170,7 @@ namespace PuzzleSystem.Gameplay
                 }
             }
 
+            board.UpdateAllPiecePointsVisual();
             board.RecalculateProgress();
             board.EnsureGhostGuideBoard();
         }
@@ -181,6 +187,16 @@ namespace PuzzleSystem.Gameplay
             if (piece != null)
             {
                 piece.SetRemoteLock(lockedBy);
+                var net = PuzzleOnline.Network.PuzzleNetworkManager.Instance;
+                if (net != null && !string.IsNullOrEmpty(net.Username) &&
+                    string.Equals(lockedBy, net.Username, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    var interactor = FindFirstObjectByType<PuzzleRaycastInteractor>();
+                    if (interactor != null && (interactor.heldPiece == null || interactor.heldPiece.pieceId != pieceId))
+                    {
+                        interactor.PickupPieceDirectly(piece);
+                    }
+                }
             }
         }
 

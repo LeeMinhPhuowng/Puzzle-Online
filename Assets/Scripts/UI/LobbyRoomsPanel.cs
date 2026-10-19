@@ -120,7 +120,7 @@ namespace PuzzleOnline.UI
         public void SetRooms(List<RoomInfo> rooms)
         {
             _cachedRooms = rooms != null ? rooms.FindAll(r => r != null &&
-                !(r.GameMode == "COMPETITIVE" && r.State != "WAITING")) : new List<RoomInfo>();
+                !( (r.GameMode == "COMPETITIVE" || r.GameMode == "BATTLE") && r.State != "WAITING")) : new List<RoomInfo>();
             OnRoomSearchChanged(roomSearchInput != null ? roomSearchInput.text : "");
         }
 

@@ -18,6 +18,7 @@ namespace PuzzleSystem.Gameplay
 
         [Header("Pick & Place Parameters")]
         public float liftHeight = 0.035f; // Độ nhấc bổng khi cầm mảnh
+        public float holdDistance = 0.65f; // Khoảng cách cầm mảnh trước ngực khi đứng xa bàn
         public float positionSmoothSpeed = 25f;
         public float snapDistanceTolerance = 0.06f;
         public float snapAngleTolerance = 35f;
@@ -48,6 +49,19 @@ namespace PuzzleSystem.Gameplay
         private INetworkService Network => _networkService ??= ServiceLocator.Get<INetworkService>();
         private IUIService UI => _uiService ??= ServiceLocator.Get<IUIService>();
 
+        public static PuzzleRaycastInteractor Instance { get; private set; }
+        public PuzzlePiece HoveredPiece { get; private set; }
+
+        private void Awake()
+        {
+            Instance = this;
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
+
         private void Start()
         {
             if (playerCamera == null)
@@ -58,11 +72,12 @@ namespace PuzzleSystem.Gameplay
 
         private void Update()
         {
-            if (playerCamera == null) { selection.Set(null); return; }
+            if (playerCamera == null) { selection.Set(null); HoveredPiece = null; return; }
 
             if ((UI != null && UI.IsModalOrChatOpen) || InteractionTargetQuery.IsBlocked)
             {
                 selection.Set(null);
+                HoveredPiece = null;
                 if (heldPiece != null)
                 {
                     ReleasePiece();
@@ -72,7 +87,7 @@ namespace PuzzleSystem.Gameplay
 
             var net = PuzzleOnline.Network.PuzzleNetworkManager.Instance;
             PuzzlePiece hovered = null;
-            if (!IsStunned && heldPiece == null && (net == null || !net.IsSaboteur) &&
+            if (!IsStunned && heldPiece == null && (net == null || !net.IsSaboteur || net.IsBattleMode) &&
                 (net == null || !net.GameplaySyncService.HasRoundEnded) &&
                 InteractionTargetQuery.TryHit(playerCamera, maxInteractDistance, out var hoverHit, includePlayers: false))
             {
@@ -80,6 +95,7 @@ namespace PuzzleSystem.Gameplay
                 if (piece != null && !piece.isPlaced && !piece.isRemoteControlled &&
                     (pieceLayer.value & (1 << piece.gameObject.layer)) != 0) hovered = piece;
             }
+            HoveredPiece = hovered;
             selection.Set(hovered != null ? hovered.gameObject : null);
 
             // Xử lý bắt đầu cầm mảnh ghép
@@ -166,9 +182,10 @@ namespace PuzzleSystem.Gameplay
         {
             if (IsStunned) return;
 
-            // Chặn Saboteur không thể cầm/gắp mảnh ghép!
+            // Chặn Saboteur không thể cầm/gắp mảnh ghép (trừ khi ở Chế độ Tranh Đấu Battle Mode)!
             if (PuzzleOnline.Network.PuzzleNetworkManager.Instance != null &&
-                PuzzleOnline.Network.PuzzleNetworkManager.Instance.IsSaboteur)
+                PuzzleOnline.Network.PuzzleNetworkManager.Instance.IsSaboteur &&
+                !PuzzleOnline.Network.PuzzleNetworkManager.Instance.IsBattleMode)
             {
                 return;
             }
@@ -206,16 +223,44 @@ namespace PuzzleSystem.Gameplay
         private void UpdateHeldPosition()
         {
             Ray ray = GetInteractionRay();
-            if (tablePlane.Raycast(ray, out float enter) && enter > 0f)
+            var sceneConfig = PuzzleOnline.Core.SceneConfig.Instance;
+            var board = heldPiece != null ? heldPiece.GetComponentInParent<PuzzleBoard>() : null;
+
+            Vector3 tableCenter = board != null ? board.transform.position 
+                : (sceneConfig != null && sceneConfig.centerReference != null ? sceneConfig.centerReference.position : Vector3.zero);
+
+            // Bán kính vùng mặt bàn (khoảng 2.5m)
+            float tableRadius = 2.5f;
+            if (sceneConfig != null)
             {
-                targetWorldPos = ray.GetPoint(enter);
+                var pb = sceneConfig.GetPieceBounds();
+                tableRadius = Mathf.Max(pb.maxX - pb.minX, pb.maxZ - pb.minZ) * 0.65f;
             }
 
-            // Giới hạn trong viền mép bàn (để mảnh không thể văng rơi ra ngoài bàn)
-            var board = heldPiece.GetComponentInParent<PuzzleBoard>();
-            if (board != null)
+            Vector2 playerXZ = new Vector2(transform.position.x, transform.position.z);
+            Vector2 tableXZ = new Vector2(tableCenter.x, tableCenter.z);
+            float distToTable = Vector2.Distance(playerXZ, tableXZ);
+            bool isNearTable = distToTable <= tableRadius;
+
+            if (isNearTable && tablePlane.Raycast(ray, out float enter) && enter > 0f)
             {
-                targetWorldPos = board.ClampToTableBounds(targetWorldPos, 0.05f);
+                // Khi đứng gần bàn: Mảnh ghép trôi trên mặt phẳng bàn theo góc nhìn và con trỏ chuột
+                targetWorldPos = ray.GetPoint(enter);
+                if (board != null)
+                {
+                    targetWorldPos = board.ClampToTableBounds(targetWorldPos, 0.05f);
+                }
+                if (sceneConfig != null)
+                {
+                    targetWorldPos = sceneConfig.ClampPiecePosition(targetWorldPos);
+                }
+            }
+            else
+            {
+                // Khi người chơi ở xa bàn (chạy quanh phòng, đi nhặt quà):
+                // Mảnh ghép được giữ chắc chắn ngay trước camera như một vật phẩm trên tay (First-person hold)
+                Transform camT = playerCamera != null ? playerCamera.transform : (Camera.main != null ? Camera.main.transform : transform);
+                targetWorldPos = camT.position + camT.forward * holdDistance + Vector3.down * 0.12f;
             }
 
             // Di chuyển mượt về targetWorldPos
@@ -233,7 +278,25 @@ namespace PuzzleSystem.Gameplay
             );
         }
 
-        public void ReleasePiece()
+        public void LockHeldForDuration(float duration)
+        {
+            // Tự do điều khiển mảnh, không khóa cứng
+        }
+
+        public void PickupPieceDirectly(PuzzlePiece piece, float lockDuration = 0f)
+        {
+            if (piece == null || piece.isPlaced) return;
+            if (heldPiece != null) ForceDropHeldPiece();
+            heldPiece = piece;
+            heldPiece.SetHeld(true);
+            Network?.LockPiece(piece.pieceId);
+            float planeY = piece.transform.position.y + liftHeight;
+            tablePlane = new Plane(Vector3.up, new Vector3(0f, planeY, 0f));
+            targetWorldPos = piece.transform.position;
+            targetWorldRot = piece.transform.rotation;
+        }
+
+        public void ReleasePiece(bool force = false)
         {
             if (heldPiece == null) return;
 
@@ -245,11 +308,19 @@ namespace PuzzleSystem.Gameplay
             bool snapped = releasing.TrySnap(snapDistanceTolerance, snapAngleTolerance);
             if (!snapped)
             {
-                // Nếu chưa khớp, hạ mảnh chạm về độ cao phẳng chuẩn của mặt bàn cờ
+                // Nếu chưa khớp:
+                // Nếu người chơi đang đứng ngoài PieceBounds, mảnh ghép tự động đưa về vị trí hợp lệ gần nhất trong phạm vi bàn
+                var sceneConfig = PuzzleOnline.Core.SceneConfig.Instance;
+                Vector3 dropPos = releasing.transform.position;
+                if (sceneConfig != null)
+                {
+                    dropPos = sceneConfig.ClampPiecePosition(dropPos);
+                }
+
                 Transform board = releasing.transform.parent;
                 if (board != null)
                 {
-                    Vector3 local = releasing.transform.localPosition;
+                    Vector3 local = board.InverseTransformPoint(dropPos);
                     local.y = releasing.correctLocalPos.y + (releasing.pieceId * 0.0003f);
                     releasing.transform.localPosition = local;
                     int rot = Mathf.RoundToInt(releasing.transform.localEulerAngles.y);
@@ -257,7 +328,7 @@ namespace PuzzleSystem.Gameplay
                 }
                 else
                 {
-                    Vector3 p = releasing.transform.position;
+                    Vector3 p = dropPos;
                     p.y -= liftHeight;
                     releasing.transform.position = p;
                     Network?.ReleasePiece(releasing.pieceId, 0f, 0f, 0);

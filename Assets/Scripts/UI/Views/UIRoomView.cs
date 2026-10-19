@@ -31,7 +31,9 @@ namespace PuzzleOnline.UI
             styles.DrawTopBar($"Phòng Chờ: {room.Name} (Mã: {room.Id})");
 
             bool isHost = room.Host == net.Username;
-            bool isCompetitive = room.GameMode == "COMPETITIVE";
+            string mode = room.GameMode ?? "CLASSIC";
+            bool isCompetitive = mode == "COMPETITIVE";
+            bool isBattle = mode == "BATTLE";
 
             // Left: Room Settings & Host Controls (Width 520)
             Rect leftPanel = new Rect(80, 115, 520, 890);
@@ -39,14 +41,19 @@ namespace PuzzleOnline.UI
             GUI.Label(new Rect(110, 140, 460, 35), "Thông Tin Ván Chơi", styles.HeaderStyle);
 
             GUI.Label(new Rect(110, 175, 460, 20), $"Chủ phòng: {room.Host}  {(isHost ? "(Bạn là Host)" : "")}", styles.MutedStyle);
-            GUI.Label(new Rect(110, 196, 460, 20), $"Chế độ: {(isCompetitive ? "⚔️ Cạnh Tranh (Phá Hoại)" : "🤝 Hợp Tác (Cổ Điển)")}  {(room.HasPassword ? "🔒 Riêng tư" : "🌐 Công khai")}", styles.MutedStyle);
+            string modeLabel = isBattle ? "🏆 Tranh Đấu (Đấu Điểm Tự Do)" :
+                               isCompetitive ? "⚔️ Phá Hoại (Thợ Xây vs Phá Hoại)" : "🤝 Hợp Tác (Cổ Điển)";
+            GUI.Label(new Rect(110, 196, 460, 20), $"Chế độ: {modeLabel}  {(room.HasPassword ? "🔒 Riêng tư" : "🌐 Công khai")}", styles.MutedStyle);
             GUI.Label(new Rect(110, 217, 460, 20), $"Thời gian mục tiêu: {UIStyles.FormatTimeLimit(room.TargetTimeSeconds)}", styles.MutedStyle);
 
             if (isHost)
             {
-                if (styles.DrawButton(new Rect(110, 238, 460, 32), isCompetitive ? "Chế độ: ⚔️ CẠNH TRANH (Bấm để đổi)" : "Chế độ: 🤝 CỔ ĐIỂN (Bấm để đổi)", isCompetitive))
+                string btnLabel = isBattle ? "Chế độ: 🏆 TRANH ĐẤU (Bấm để đổi)" :
+                                  isCompetitive ? "Chế độ: ⚔️ PHÁ HOẠI (Bấm để đổi)" : "Chế độ: 🤝 CỔ ĐIỂN (Bấm để đổi)";
+                if (styles.DrawButton(new Rect(110, 238, 460, 32), btnLabel, isCompetitive || isBattle))
                 {
-                    net.SelectGameMode(isCompetitive ? "CLASSIC" : "COMPETITIVE");
+                    string nextMode = isCompetitive ? "BATTLE" : (isBattle ? "CLASSIC" : "COMPETITIVE");
+                    net.SelectGameMode(nextMode);
                 }
             }
 

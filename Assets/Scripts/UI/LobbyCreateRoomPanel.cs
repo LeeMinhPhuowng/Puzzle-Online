@@ -44,9 +44,10 @@ namespace PuzzleOnline.UI
         [SerializeField] private Sprite activeGoldSprite;
         [SerializeField] private Sprite inactiveDarkSprite;
 
-        [Header("Game Mode Buttons (Giải trí vs Hỗn loạn)")]
+        [Header("Game Mode Buttons (Giải trí vs Hỗn loạn vs Tranh đấu)")]
         [SerializeField] private Button peacefulButton; // Giải trí (CLASSIC)
         [SerializeField] private Button mayhemButton;   // Hỗn loạn (COMPETITIVE)
+        [SerializeField] private Button battleButton;   // Tranh đấu (BATTLE)
 
         private bool _isPrivateRoom = false;
         private bool _isInRoom = false;
@@ -94,6 +95,27 @@ namespace PuzzleOnline.UI
                 var t = transform.Find("Mayhem") ?? transform.Find("MayhemBtn") ?? transform.Find("HonLoan");
                 if (t != null) mayhemButton = t.GetComponent<Button>();
             }
+            if (battleButton == null)
+            {
+                var t = transform.Find("Warfield") ?? transform.Find("Battle") ?? transform.Find("BattleBtn") ?? transform.Find("TranhDau") ?? transform.Find("Tranh dau") ?? transform.Find("WarField");
+                if (t != null)
+                {
+                    battleButton = t.GetComponent<Button>();
+                }
+                else
+                {
+                    var allButtons = GetComponentsInChildren<Button>(true);
+                    foreach (var b in allButtons)
+                    {
+                        string n = b.gameObject.name.ToLower();
+                        if (n.Contains("warfield") || n.Contains("battle") || n.Contains("tranh"))
+                        {
+                            battleButton = b;
+                            break;
+                        }
+                    }
+                }
+            }
 
             if (peacefulButton != null)
             {
@@ -104,6 +126,11 @@ namespace PuzzleOnline.UI
             {
                 mayhemButton.onClick.RemoveAllListeners();
                 mayhemButton.onClick.AddListener(() => OnSelectGameMode("COMPETITIVE"));
+            }
+            if (battleButton != null)
+            {
+                battleButton.onClick.RemoveAllListeners();
+                battleButton.onClick.AddListener(() => OnSelectGameMode("BATTLE"));
             }
 
             if (choosePuzzleButton == null)
@@ -130,6 +157,7 @@ namespace PuzzleOnline.UI
 
             SetPrivacy(false);
             InitDefaultValues();
+            UpdateGameModeButtons();
         }
 
         private void Start()
@@ -226,7 +254,7 @@ namespace PuzzleOnline.UI
                 if (choosePuzzleButton != null) choosePuzzleButton.interactable = isHost;
                 if (chooseEnvironmentButton != null) chooseEnvironmentButton.interactable = isHost;
 
-                // 3.5. Nút Chế độ Giải trí (Peaceful) vs Hỗn loạn (Mayhem)
+                // 3.5. Nút Chế độ Giải trí (Peaceful) vs Hỗn loạn (Mayhem) vs Tranh đấu (Battle)
                 _selectedGameMode = room.GameMode ?? "CLASSIC";
                 UpdateGameModeButtons();
                 if (peacefulButton != null)
@@ -238,6 +266,11 @@ namespace PuzzleOnline.UI
                 {
                     mayhemButton.gameObject.SetActive(true);
                     mayhemButton.interactable = isHost;
+                }
+                if (battleButton != null)
+                {
+                    battleButton.gameObject.SetActive(true);
+                    battleButton.interactable = isHost;
                 }
 
                 // 4. Nút Create / Start / Ready (Nút trên do người dùng đặt sẵn trong Scene):
@@ -301,7 +334,7 @@ namespace PuzzleOnline.UI
                 }
 
                 // Ở Sảnh: Ẩn nút "Rời phòng" vì chưa vào phòng
-                // Ở Sảnh: Cập nhật hiển thị 2 nút Giải trí / Hỗn loạn
+                // Ở Sảnh: Cập nhật hiển thị 3 nút Giải trí / Hỗn loạn / Tranh đấu
                 UpdateGameModeButtons();
                 if (peacefulButton != null)
                 {
@@ -312,6 +345,11 @@ namespace PuzzleOnline.UI
                 {
                     mayhemButton.gameObject.SetActive(true);
                     mayhemButton.interactable = true;
+                }
+                if (battleButton != null)
+                {
+                    battleButton.gameObject.SetActive(true);
+                    battleButton.interactable = true;
                 }
             }
         }
@@ -330,9 +368,13 @@ namespace PuzzleOnline.UI
 
         private void UpdateGameModeButtons()
         {
+            bool isClassic = _selectedGameMode == "CLASSIC";
             bool isComp = _selectedGameMode == "COMPETITIVE";
-            UpdateButtonState(peacefulButton, !isComp);
+            bool isBattle = _selectedGameMode == "BATTLE";
+
+            UpdateButtonState(peacefulButton, isClassic);
             UpdateButtonState(mayhemButton, isComp);
+            UpdateButtonState(battleButton, isBattle);
         }
 
         private void OnMainActionClicked()

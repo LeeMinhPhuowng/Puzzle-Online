@@ -30,6 +30,8 @@ namespace PuzzleOnline.Gameplay.Competitive
         // Game Over Banner
         private string gameOverResult = "";
         private string gameOverTeam = "";
+        private string gameOverWinner = "";
+        private int gameOverScore = 0;
         private float gameOverTimer = 0f;
 
         private void Awake()
@@ -79,6 +81,9 @@ namespace PuzzleOnline.Gameplay.Competitive
             spawnedItems.Clear();
 
             gameOverResult = "";
+            gameOverTeam = "";
+            gameOverWinner = "";
+            gameOverScore = 0;
             gameOverTimer = 0f;
 
             var net = PuzzleNetworkManager.Instance;
@@ -115,7 +120,7 @@ namespace PuzzleOnline.Gameplay.Competitive
             }
         }
 
-        private void HandleSabotageTriggered(string itemType, string targetUser, string byUser, float duration)
+        private void HandleSabotageTriggered(string itemType, string targetUser, string byUser, float duration, float force)
         {
             var net = PuzzleNetworkManager.Instance;
             if (net == null) return;
@@ -135,14 +140,27 @@ namespace PuzzleOnline.Gameplay.Competitive
                 case "SLAP":
                     if (isMe)
                     {
-                        shakeIntensity = 0.4f;
-                        slapHandAlpha = 1f;
+                        // Kích hoạt rung giật camera mạnh mẽ qua FirstPersonCameraScript
+                        var camScript = FirstPersonCamera.FirstPersonCameraScript.Instance ?? FindFirstObjectByType<FirstPersonCamera.FirstPersonCameraScript>();
+                        if (camScript != null)
+                        {
+                            camScript.TriggerExternalShake(ItemConfig.GloveCameraShakeIntensity, ItemConfig.GloveCameraShakeDuration);
+                        }
+                        shakeIntensity = ItemConfig.GloveCameraShakeIntensity;
 
-                        // Làm choáng và rơi mảnh đang cầm
+                        // Làm rơi mảnh đang cầm (nếu có)
                         var interactor = FindFirstObjectByType<PuzzleRaycastInteractor>();
                         if (interactor != null)
                         {
-                            interactor.Stun(duration);
+                            interactor.ForceDropHeldPiece();
+                        }
+
+                        // Hất tung người chơi lên trời theo phương thẳng đứng (trục Y) theo cấu hình ItemConfig
+                        var playerCtrl = FindFirstObjectByType<PlayerController.PlayerController>();
+                        if (playerCtrl != null)
+                        {
+                            float knockback = force > 0f ? force : ItemConfig.GloveKnockbackForce;
+                            playerCtrl.LaunchUpward(knockback);
                         }
                     }
                     break;
@@ -153,20 +171,21 @@ namespace PuzzleOnline.Gameplay.Competitive
                         var interactor = FindFirstObjectByType<PuzzleRaycastInteractor>();
                         if (interactor != null)
                         {
-                            interactor.ApplyMagnetDebuff(6f);
+                            interactor.ForceDropHeldPiece();
                         }
                     }
                     break;
             }
         }
 
-        private void HandleGameOverResult(string result, string winnerTeam)
+        private void HandleGameOverResult(string result, string winnerTeam, string winner, int score)
         {
             gameOverResult = result;
             gameOverTeam = winnerTeam;
+            gameOverWinner = winner;
+            gameOverScore = score;
             gameOverTimer = 10f; // Hiển thị trong 10 giây
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
+            CursorManager.Unlock();
         }
 
         private void Update()
@@ -214,27 +233,7 @@ namespace PuzzleOnline.Gameplay.Competitive
                 GUI.color = oldColor;
             }
 
-            // Hiệu ứng Slap Glove (dấu bàn tay đỏ to tướng)
-            if (slapHandAlpha > 0f)
-            {
-                var slapStyle = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = 120,
-                    alignment = TextAnchor.MiddleCenter
-                };
-                slapStyle.normal.textColor = new Color(1f, 0.2f, 0.2f, slapHandAlpha);
-                GUI.Label(new Rect(0, 0, ResponsiveGUI.LogicalWidth, ResponsiveGUI.LogicalHeight), "💥🧤 BỐP!", slapStyle);
-
-                var stunStyle = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = 24,
-                    alignment = TextAnchor.MiddleCenter,
-                    fontStyle = FontStyle.Bold
-                };
-                stunStyle.normal.textColor = new Color(1f, 0.9f, 0.2f, slapHandAlpha);
-                GUI.Label(new Rect(0, ResponsiveGUI.LogicalHeight * 0.65f, ResponsiveGUI.LogicalWidth, 40f), "BẠN ĐÃ BỊ TÁT CHOÁNG! KHÔNG THỂ CẦM MẢNH GHÉP!", stunStyle);
-            }
-
+            // Hiệu ứng Slap Glove (Bốp) đã được tắt theo yêu cầu người dùng (chỉ giữ hiệu ứng hất tung và rung camera)
             // Banner Game Over Thắng/Thua
             if (gameOverTimer > 0f && !string.IsNullOrEmpty(gameOverResult))
             {
@@ -251,10 +250,18 @@ namespace PuzzleOnline.Gameplay.Competitive
             float bx = (ResponsiveGUI.LogicalWidth - bannerWidth) / 2f;
             float by = ResponsiveGUI.LogicalHeight * 0.25f;
 
+            bool isBattle = gameOverResult == "BATTLE_WIN" || gameOverResult == "BATTLE_TIMEOUT" || gameOverTeam == "BATTLE";
             bool buildersWon = (gameOverResult == "BUILDERS_WIN");
 
             Color oldBg = GUI.backgroundColor;
-            GUI.backgroundColor = buildersWon ? new Color(0.1f, 0.7f, 0.2f, 0.95f) : new Color(0.8f, 0.15f, 0.15f, 0.95f);
+            if (isBattle)
+            {
+                GUI.backgroundColor = new Color(0.95f, 0.65f, 0.1f, 0.95f); // Vàng kim rực rỡ
+            }
+            else
+            {
+                GUI.backgroundColor = buildersWon ? new Color(0.1f, 0.7f, 0.2f, 0.95f) : new Color(0.8f, 0.15f, 0.15f, 0.95f);
+            }
 
             var boxStyle = new GUIStyle(GUI.skin.box);
             GUI.Box(new Rect(bx, by, bannerWidth, bannerHeight), GUIContent.none, boxStyle);
@@ -268,7 +275,17 @@ namespace PuzzleOnline.Gameplay.Competitive
             };
             titleStyle.normal.textColor = Color.yellow;
 
-            string title = buildersWon ? "🏆 ĐỘI THỢ XÂY CHIẾN THẮNG! 🏆" : "😈 ĐỘI PHÁ HOẠI CHIẾN THẮNG! 😈";
+            string title;
+            if (isBattle)
+            {
+                title = !string.IsNullOrEmpty(gameOverWinner)
+                    ? $"👑 {gameOverWinner.ToUpper()} CHIẾN THẮNG! 👑"
+                    : "👑 KẾT THÚC TRANH ĐẤU! 👑";
+            }
+            else
+            {
+                title = buildersWon ? "🏆 ĐỘI THỢ XÂY CHIẾN THẮNG! 🏆" : "😈 ĐỘI PHÁ HOẠI CHIẾN THẮNG! 😈";
+            }
             GUI.Label(new Rect(bx, by + 15f, bannerWidth, 45f), title, titleStyle);
 
             var descStyle = new GUIStyle(GUI.skin.label)
@@ -278,9 +295,21 @@ namespace PuzzleOnline.Gameplay.Competitive
             };
             descStyle.normal.textColor = Color.white;
 
-            string desc = buildersWon
-                ? "Bức tranh đã được hoàn thành trước khi hết thời gian!"
-                : "Hết thời gian mục tiêu! Tranh chưa được hoàn thành!";
+            string desc;
+            if (isBattle)
+            {
+                string leadText = !string.IsNullOrEmpty(gameOverWinner) ? $"{gameOverWinner} dẫn đầu với {gameOverScore} điểm!" : "";
+                if (gameOverResult == "BATTLE_WIN")
+                    desc = $"Bức tranh đã được hoàn thành! {leadText}";
+                else
+                    desc = $"Hết thời gian tranh đấu! {leadText}";
+            }
+            else
+            {
+                desc = buildersWon
+                    ? "Bức tranh đã được hoàn thành trước khi hết thời gian!"
+                    : "Hết thời gian mục tiêu! Tranh chưa được hoàn thành!";
+            }
             GUI.Label(new Rect(bx, by + 70f, bannerWidth, 35f), desc, descStyle);
 
             var subStyle = new GUIStyle(GUI.skin.label)

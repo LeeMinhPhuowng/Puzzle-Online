@@ -39,10 +39,11 @@ namespace PuzzleOnline.Network
 
         public event Action<WorldItemInfo> OnItemSpawned;
         public event Action<string, string, string> OnItemPickedUp;
-        public event Action<string, string, string, float> OnSabotageTriggered;
+        public event Action<string, string, string, float, float> OnSabotageTriggered;
+        public event Action<string, string> OnItemUsed;
         public event Action<List<int>, float, string> OnInkSplash;
         public event Action<int, float, float, int, string> OnPieceUnfit;
-        public event Action<string, string> OnGameOverResult;
+        public event Action<string, string, string, int> OnGameOverResult;
 
         private float _lastSentLookYaw = -9999f;
         private float _lastSentLookPitch = -9999f;
@@ -193,7 +194,10 @@ namespace PuzzleOnline.Network
                     return true;
 
                 case "ITEM_USED":
-                    heldItems.Remove(message.Get("by"));
+                    string usedType = message.Get("item");
+                    string usedBy = message.Get("by");
+                    heldItems.Remove(usedBy);
+                    OnItemUsed?.Invoke(usedType, usedBy);
                     return true;
 
                 case "PIECE_UNFIT":
@@ -234,7 +238,8 @@ namespace PuzzleOnline.Network
                     string sTarget = message.Get("target");
                     string sBy = message.Get("by");
                     float sDur = message.GetFloat("duration", 3.5f);
-                    OnSabotageTriggered?.Invoke(sType, sTarget, sBy, sDur);
+                    float sForce = message.GetFloat("force", 0f);
+                    OnSabotageTriggered?.Invoke(sType, sTarget, sBy, sDur, sForce);
                     return true;
 
                 case "GAME_OVER":
@@ -242,7 +247,9 @@ namespace PuzzleOnline.Network
                     heldItems.Clear();
                     string goResult = message.Get("result");
                     string goWinnerTeam = message.Get("winnerTeam");
-                    OnGameOverResult?.Invoke(goResult, goWinnerTeam);
+                    string goWinner = message.Get("winner");
+                    int goScore = message.GetInt("score", 0);
+                    OnGameOverResult?.Invoke(goResult, goWinnerTeam, goWinner, goScore);
                     return true;
 
                 case "PIECE_LOCKED":
@@ -283,7 +290,8 @@ namespace PuzzleOnline.Network
                         placedPiece.Y = py;
                         placedPiece.Rotation = prot;
                     }
-                    if (placedBy == localUsername) addScoreCallback?.Invoke(10);
+                    int awardedPoints = message.GetInt("points", 10);
+                    if (placedBy == localUsername) addScoreCallback?.Invoke(awardedPoints);
                     OnPiecePlacedEvent?.Invoke(placeId, px, py, prot, placedBy);
                     return true;
 

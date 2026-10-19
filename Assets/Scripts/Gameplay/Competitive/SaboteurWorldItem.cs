@@ -372,14 +372,31 @@ namespace PuzzleOnline.Gameplay.Competitive
         private void CheckPickupInteraction()
         {
             var net = PuzzleNetworkManager.Instance;
-            if (net == null || !net.IsGameActive || !net.IsSaboteur || net.GameplaySyncService.HasRoundEnded ||
+            if (net == null || !net.IsGameActive || (!net.IsSaboteur && !net.IsBattleMode) || net.GameplaySyncService.HasRoundEnded ||
                 PuzzleOnline.Utility.InteractionTargetQuery.IsBlocked) return;
 
             Camera cam = Camera.main;
             if (cam == null) return;
 
             float dist = Vector3.Distance(cam.transform.position, transform.position);
-            if (dist <= 3.2f)
+            bool isAimedAt = false;
+            if (dist <= 5.5f)
+            {
+                Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+                var hits = Physics.RaycastAll(ray, 5.5f, ~0, QueryTriggerInteraction.Collide);
+                Transform localPlayer = cam.GetComponentInParent<PlayerController.PlayerController>()?.transform;
+                foreach (var hit in hits)
+                {
+                    if (localPlayer != null && hit.collider.transform.IsChildOf(localPlayer)) continue;
+                    if (hit.collider != null && (hit.collider.gameObject == gameObject || hit.collider.transform.IsChildOf(transform)))
+                    {
+                        isAimedAt = true;
+                        break;
+                    }
+                }
+            }
+
+            if (dist <= 3.2f || isAimedAt)
             {
                 OnItemNearby?.Invoke(this);
 

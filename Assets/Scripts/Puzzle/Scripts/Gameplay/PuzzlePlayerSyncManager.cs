@@ -270,6 +270,10 @@ namespace PuzzleSystem.Gameplay
                     Transform headObj = remoteObj.transform.Find("Head");
 
                     avatar = remoteObj.AddComponent<RemotePlayerAvatar>();
+                    if (remoteObj.GetComponent<PuzzleOnline.Gameplay.Competitive.PlayerAuraVisual>() == null)
+                    {
+                        remoteObj.AddComponent<PuzzleOnline.Gameplay.Competitive.PlayerAuraVisual>();
+                    }
                     avatar.Setup(p.Username, headObj);
                     // A trigger on its own layer is queryable without pushing the local controller.
                     var targetObject = new GameObject("PlayerTarget");

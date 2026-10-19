@@ -115,6 +115,9 @@ namespace PuzzleOnline.Network
 
         public string CurrentGameMode => CurrentRoom?.GameMode ?? "CLASSIC";
         public bool IsCompetitive => CurrentGameMode == "COMPETITIVE";
+        public bool IsBattleMode => CurrentGameMode == "BATTLE";
+        public bool HasTimer => IsCompetitive || IsBattleMode;
+        public bool HasItems => IsCompetitive || IsBattleMode;
         public string LocalPlayerTeam
         {
             get
@@ -124,8 +127,8 @@ namespace PuzzleOnline.Network
                 return p != null && !string.IsNullOrEmpty(p.Team) ? p.Team : "BUILDER";
             }
         }
-        public bool IsSaboteur => LocalPlayerTeam == "SABOTEUR";
-        public bool IsBuilder => !IsSaboteur;
+        public bool IsSaboteur => !IsBattleMode && LocalPlayerTeam == "SABOTEUR";
+        public bool IsBuilder => !IsSaboteur && !IsBattleMode;
 
         public string GetPuzzleName(string puzzleId)
         {
@@ -186,10 +189,11 @@ namespace PuzzleOnline.Network
         public event Action OnGameContinued;
         public event Action<WorldItemInfo> OnItemSpawned;
         public event Action<string, string, string> OnItemPickedUp;
-        public event Action<string, string, string, float> OnSabotageTriggered;
+        public event Action<string, string, string, float, float> OnSabotageTriggered;
+        public event Action<string, string> OnItemUsed;
         public event Action<List<int>, float, string> OnInkSplash;
         public event Action<int, float, float, int, string> OnPieceUnfit;
-        public event Action<string, string> OnGameOverResult;
+        public event Action<string, string, string, int> OnGameOverResult;
 
 #if UNITY_EDITOR
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -312,10 +316,11 @@ namespace PuzzleOnline.Network
 
             GameplaySyncService.OnItemSpawned += item => OnItemSpawned?.Invoke(item);
             GameplaySyncService.OnItemPickedUp += (id, type, by) => OnItemPickedUp?.Invoke(id, type, by);
-            GameplaySyncService.OnSabotageTriggered += (type, target, by, dur) => OnSabotageTriggered?.Invoke(type, target, by, dur);
+            GameplaySyncService.OnSabotageTriggered += (type, target, by, dur, force) => OnSabotageTriggered?.Invoke(type, target, by, dur, force);
+            GameplaySyncService.OnItemUsed += (item, by) => OnItemUsed?.Invoke(item, by);
             GameplaySyncService.OnInkSplash += (ids, dur, by) => OnInkSplash?.Invoke(ids, dur, by);
             GameplaySyncService.OnPieceUnfit += (id, x, y, rot, by) => OnPieceUnfit?.Invoke(id, x, y, rot, by);
-            GameplaySyncService.OnGameOverResult += (res, team) => OnGameOverResult?.Invoke(res, team);
+            GameplaySyncService.OnGameOverResult += (res, team, winner, score) => OnGameOverResult?.Invoke(res, team, winner, score);
         }
 
         private void Start()
@@ -350,6 +355,22 @@ namespace PuzzleOnline.Network
                     if (PendingReconnect != null) return;
                     RoomPlayers.Clear();
                     RoomPlayers.AddRange(ModelParser.Players(message.Get("players")));
+                    if (CurrentRoom != null && message.Data.ContainsKey("gameMode"))
+                    {
+                        CurrentRoom.GameMode = message.Get("gameMode");
+                    }
+                    else if (CurrentRoom == null && RoomService != null)
+                    {
+                        RoomService.CurrentRoom = new RoomInfo
+                        {
+                            Id = message.Get("roomId"),
+                            Name = message.Get("roomName"),
+                            Host = message.Get("host"),
+                            GameMode = message.Get("gameMode", "CLASSIC"),
+                            PuzzleId = message.Get("puzzleId"),
+                            ThemeId = message.Get("themeId", "SCN_Nature")
+                        };
+                    }
                     bool handled = GameplaySyncService.HandleMessage(message, Username, score => AuthService.TotalScore += score, () => AuthService.UniquePuzzlesCompleted++);
                     if (handled)
                     {

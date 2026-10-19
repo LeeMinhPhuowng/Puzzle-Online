@@ -257,6 +257,7 @@ namespace PuzzleSystem.Gameplay
 
             placedCount = 0;
             isCompleted = false;
+            InitializeBattlePiecePoints();
             UpdateProgress();
         }
 
@@ -372,7 +373,67 @@ namespace PuzzleSystem.Gameplay
 
             placedCount = 0;
             isCompleted = false;
+            InitializeBattlePiecePoints();
             UpdateProgress();
+        }
+
+        public void InitializeBattlePiecePoints()
+        {
+            if (activePieces == null || activePieces.Count == 0) return;
+            var net = PuzzleOnline.Network.PuzzleNetworkManager.Instance;
+            int count = activePieces.Count;
+            int seed = 12345;
+            if (net != null)
+            {
+                string key = (net.GameplaySyncService?.GameInstanceId ?? "") + (net.CurrentRoom?.Id ?? "") + net.CurrentPuzzleId;
+                if (!string.IsNullOrEmpty(key)) seed = key.GetHashCode();
+            }
+            var rand = new System.Random(seed);
+            var pointList = GenerateRarityPoints(count, rand);
+            for (int i = 0; i < count; i++)
+            {
+                activePieces[i].SetPoints(pointList[i]);
+            }
+        }
+
+        public static List<int> GenerateRarityPoints(int total, System.Random rand)
+        {
+            var list = new List<int>(total);
+            if (total <= 0) return list;
+
+            int count5 = Mathf.Max(total >= 5 ? 1 : 0, Mathf.RoundToInt(total * 0.05f));
+            int count4 = Mathf.Max(total >= 10 ? 1 : 0, Mathf.RoundToInt(total * 0.10f));
+            int count3 = Mathf.Max(total >= 15 ? 1 : 0, Mathf.RoundToInt(total * 0.15f));
+            int count2 = Mathf.RoundToInt(total * 0.25f);
+            int count1 = total - (count5 + count4 + count3 + count2);
+            if (count1 < 0) { count2 += count1; count1 = 0; }
+
+            for (int i = 0; i < count5; i++) list.Add(5);
+            for (int i = 0; i < count4; i++) list.Add(4);
+            for (int i = 0; i < count3; i++) list.Add(3);
+            for (int i = 0; i < count2; i++) list.Add(2);
+            for (int i = 0; i < count1; i++) list.Add(1);
+
+            while (list.Count < total) list.Add(1);
+            while (list.Count > total) list.RemoveAt(list.Count - 1);
+
+            for (int i = total - 1; i > 0; i--)
+            {
+                int k = rand.Next(i + 1);
+                int tmp = list[i];
+                list[i] = list[k];
+                list[k] = tmp;
+            }
+            return list;
+        }
+
+        public void UpdateAllPiecePointsVisual()
+        {
+            if (activePieces == null) return;
+            foreach (var piece in activePieces)
+            {
+                if (piece != null) piece.UpdatePointsVisual();
+            }
         }
 
         public void ScatterPiece(PuzzlePiece piece)

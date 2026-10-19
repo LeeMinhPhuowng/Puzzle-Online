@@ -53,6 +53,26 @@ namespace PuzzleOnline.UI
             {
                 friendItemTemplate.SetActive(false);
             }
+
+            var closeBtn = transform.Find("Close")?.GetComponent<Button>()
+                        ?? transform.Find("CloseBtn")?.GetComponent<Button>()
+                        ?? transform.Find("BtnClose")?.GetComponent<Button>()
+                        ?? transform.Find("Header/Close")?.GetComponent<Button>();
+            if (closeBtn != null)
+            {
+                closeBtn.onClick.AddListener(() =>
+                {
+                    var lobbyCtrl = FindFirstObjectByType<LobbyUIController>();
+                    if (lobbyCtrl != null)
+                    {
+                        lobbyCtrl.SetFriendsOverlayVisible(false);
+                    }
+                    else
+                    {
+                        gameObject.SetActive(false);
+                    }
+                });
+            }
         }
 
         private void OnDestroy()

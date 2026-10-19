@@ -30,9 +30,9 @@ namespace PuzzleOnline.Gameplay.Competitive
         public string Instruction => IsUsePending ? "Đang chờ xác nhận sử dụng..." : CurrentItem switch
         {
             "SHOVEL" => "XÀ BENG: Nhấp chuột trái vào mảnh đã ghép đúng để cạy ra.",
-            "INK" => "BÌNH MỰC: Nhấp chuột trái vào bàn chơi để làm đen các mảnh ghép.",
-            "SLAP" => "GĂNG TAY: Nhấp chuột trái vào người chơi để gây choáng 3.5 giây.",
-            "MAGNET" => "NAM CHÂM: Nhấp chuột trái vào người chơi để giật rơi mảnh đang giữ.",
+            "INK" => "BÌNH MỰC: Nhấp chuột trái vào bàn chơi để bôi đen và giấu điểm mảnh ghép.",
+            "SLAP" => "GĂNG TAY: Nhấp chuột trái để tát bay người chơi lên trời.",
+            "MAGNET" => "NAM CHÂM: Nhấp chuột trái để hút mảnh ghép từ bàn hoặc người chơi (cố định 5s).",
             "FLASHLIGHT" => "ĐÈN PIN: Nhấp chuột trái vào người chơi để rọi mù màn hình.",
             _ => "Chưa có vật phẩm. Tìm hộp quà và nhấn [E] để mở."
         };
@@ -102,7 +102,7 @@ namespace PuzzleOnline.Gameplay.Competitive
         {
             var net = PuzzleNetworkManager.Instance;
             if (string.IsNullOrEmpty(CurrentItem)) IsUsePending = false;
-            if (net == null || !net.IsGameActive || !net.IsSaboteur) return;
+            if (net == null || !net.IsGameActive || (!net.IsSaboteur && !net.IsBattleMode)) return;
 
             if (nearbyItemTimer > 0f)
             {
@@ -122,13 +122,25 @@ namespace PuzzleOnline.Gameplay.Competitive
         public bool TryUseSelectedItem(string targetUser = "", int pieceId = -1, bool fromTargetButton = false)
         {
             var net = PuzzleNetworkManager.Instance;
-            if (net == null || !net.Client.IsConnected || !net.IsSaboteur ||
+            if (net == null || !net.Client.IsConnected || (!net.IsSaboteur && !net.IsBattleMode) ||
                 string.IsNullOrEmpty(CurrentItem) || IsUsePending ||
                 (InteractionTargetQuery.IsBlocked && !(fromTargetButton && !PuzzleOnline.UI.PuzzleOnlineUIManager.IsModalOrChatOpen))) return false;
             IsUsePending = true;
             useRequestedAt = Time.unscaledTime;
-            net.UseSabotage(CurrentItem, targetUser, pieceId);
+            string usedItem = CurrentItem;
+            net.UseSabotage(usedItem, targetUser, pieceId);
+            TriggerLocalUseAnimation(usedItem);
             return true;
+        }
+
+        private void TriggerLocalUseAnimation(string itemType)
+        {
+            var playerCtrl = FindFirstObjectByType<PlayerController.PlayerController>();
+            if (playerCtrl != null)
+            {
+                var visuals = playerCtrl.GetComponent<PlayerHeldItemVisuals>();
+                if (visuals != null) visuals.PlayUseAnimation(itemType);
+            }
         }
 
         public string GetItemDisplayName(string itemType)

@@ -455,17 +455,25 @@ public final class PuzzleServer {
         room.puzzleId = puzzleId;
         room.themeId = themeId;
         room.password = password != null ? password.trim() : "";
-        room.gameMode = "COMPETITIVE".equalsIgnoreCase(gameMode) ? "COMPETITIVE" : "CLASSIC";
-        if ("COMPETITIVE".equals(room.gameMode)) {
+        if ("BATTLE".equalsIgnoreCase(gameMode)) {
+            room.gameMode = "BATTLE";
+            PuzzleDefinition def = getPuzzle(puzzleId);
+            room.targetTimeSeconds = Math.max(def.rows, def.columns) * 60;
+        } else if ("COMPETITIVE".equalsIgnoreCase(gameMode)) {
+            room.gameMode = "COMPETITIVE";
             PuzzleDefinition def = getPuzzle(puzzleId);
             room.targetTimeSeconds = Math.max(def.rows, def.columns) * 60;
         } else {
+            room.gameMode = "CLASSIC";
             room.targetTimeSeconds = Math.max(0, Math.min(7200, targetTime));
         }
         room.saveOwner = client.account.username;
         room.hasSave = !savedGames(client.account.username).isEmpty();
         Member hostMember = new Member(client.account.username);
         hostMember.ready = true;
+        if ("BATTLE".equalsIgnoreCase(room.gameMode)) {
+            hostMember.team = "BATTLE";
+        }
         room.members.put(client.account.username, hostMember);
         rooms.put(room.id, room);
         enterRoom(client, room);
@@ -482,8 +490,8 @@ public final class PuzzleServer {
             return;
         }
         Member existing = room.members.get(client.account.username);
-        if (existing == null && "COMPETITIVE".equalsIgnoreCase(room.gameMode) && !"WAITING".equals(room.state)) {
-            client.error("GAME_ALREADY_STARTED", "Phòng Hỗn loạn đã bắt đầu, không thể nhận thêm người chơi.");
+        if (existing == null && ("COMPETITIVE".equalsIgnoreCase(room.gameMode) || "BATTLE".equalsIgnoreCase(room.gameMode)) && !"WAITING".equals(room.state)) {
+            client.error("GAME_ALREADY_STARTED", "Phòng trận đấu đã bắt đầu, không thể nhận thêm người chơi.");
             return;
         }
         if (existing == null && room.members.size() >= room.maxPlayers) {
@@ -502,8 +510,16 @@ public final class PuzzleServer {
             }
         }
         if (!client.account.roomId.isBlank() && !client.account.roomId.equals(room.id)) leaveRoom(client, false);
-        if (existing == null) room.members.put(client.account.username, new Member(client.account.username));
-        else { existing.connected = true; existing.lastSeen = System.currentTimeMillis(); }
+        if (existing == null) {
+            Member newMember = new Member(client.account.username);
+            if ("BATTLE".equalsIgnoreCase(room.gameMode)) {
+                newMember.team = "BATTLE";
+            }
+            room.members.put(client.account.username, newMember);
+        } else {
+            existing.connected = true;
+            existing.lastSeen = System.currentTimeMillis();
+        }
         enterRoom(client, room);
         broadcastPlayerEvent(room, client.account.username + " đã tham gia phòng.");
         broadcastRoom(room);
@@ -583,7 +599,7 @@ public final class PuzzleServer {
             return;
         }
         room.puzzleId = puzzle;
-        if ("COMPETITIVE".equals(room.gameMode)) {
+        if ("COMPETITIVE".equalsIgnoreCase(room.gameMode) || "BATTLE".equalsIgnoreCase(room.gameMode)) {
             PuzzleDefinition def = getPuzzle(puzzle);
             room.targetTimeSeconds = Math.max(def.rows, def.columns) * 60;
         }
@@ -611,8 +627,8 @@ public final class PuzzleServer {
     private void selectTimeLimit(ClientHandler client, Wire.Message message) {
         Room room = waitingRoom(client);
         if (room == null || !requireHost(client, room)) return;
-        if ("COMPETITIVE".equals(room.gameMode)) {
-            client.error("FIXED_TIME", "Chế độ Cạnh Tranh tự động cố định thời gian theo kích thước tranh.");
+        if ("COMPETITIVE".equalsIgnoreCase(room.gameMode) || "BATTLE".equalsIgnoreCase(room.gameMode)) {
+            client.error("FIXED_TIME", "Chế độ này tự động cố định thời gian theo kích thước tranh.");
             return;
         }
         int seconds = message.integer("seconds", 300);
@@ -627,20 +643,30 @@ public final class PuzzleServer {
         Room room = waitingRoom(client);
         if (room == null || !requireHost(client, room)) return;
         String mode = message.get("gameMode");
-        room.gameMode = "COMPETITIVE".equalsIgnoreCase(mode) ? "COMPETITIVE" : "CLASSIC";
-        if ("COMPETITIVE".equals(room.gameMode)) {
+        if (mode == null || mode.isBlank()) mode = message.get("mode");
+        if ("BATTLE".equalsIgnoreCase(mode)) {
+            room.gameMode = "BATTLE";
+            PuzzleDefinition def = getPuzzle(room.puzzleId);
+            room.targetTimeSeconds = Math.max(def.rows, def.columns) * 60;
+            for (Member m : room.members.values()) {
+                m.team = "BATTLE";
+            }
+        } else if ("COMPETITIVE".equalsIgnoreCase(mode)) {
+            room.gameMode = "COMPETITIVE";
             PuzzleDefinition def = getPuzzle(room.puzzleId);
             room.targetTimeSeconds = Math.max(def.rows, def.columns) * 60;
             for (Member m : room.members.values()) {
                 m.team = "UNDECIDED";
             }
         } else {
+            room.gameMode = "CLASSIC";
             for (Member m : room.members.values()) {
                 m.team = "BUILDER";
             }
         }
         broadcastRoom(room);
-        String label = "COMPETITIVE".equals(room.gameMode) ? "Cạnh Tranh (Thợ Xây vs Phá Hoại)" : "Cổ Điển (Hợp Tác)";
+        String label = "BATTLE".equals(room.gameMode) ? "Tranh Đấu (Đấu Điểm Tự Do)" :
+                       "COMPETITIVE".equals(room.gameMode) ? "Cạnh Tranh (Thợ Xây vs Phá Hoại)" : "Cổ Điển (Hợp Tác)";
         broadcastPlayerEvent(room, "Chủ phòng đã chuyển chế độ chơi sang: " + label);
         broadcastLobbyAll();
     }
@@ -653,7 +679,7 @@ public final class PuzzleServer {
         String type = "GIFTBOX";
         String id = "item_" + UUID.randomUUID().toString().substring(0, 8);
         double angle = random.nextDouble() * 2 * Math.PI;
-        double dist = 1.0 + random.nextDouble() * 2.2;
+        double dist = ItemConfig.GIFTBOX_SPAWN_MIN_RADIUS + random.nextDouble() * (ItemConfig.GIFTBOX_SPAWN_MAX_RADIUS - ItemConfig.GIFTBOX_SPAWN_MIN_RADIUS);
         float x = (float) (Math.cos(angle) * dist);
         float z = (float) (Math.sin(angle) * dist);
         float y = 0.0f;
@@ -664,8 +690,10 @@ public final class PuzzleServer {
         Room room = playingRoom(client);
         if (room == null) return;
         Member member = room.members.get(client.account.username);
-        if (member == null || !"SABOTEUR".equalsIgnoreCase(member.team)) {
-            client.error("ONLY_SABOTEUR_PICKUP", "Chỉ Đội Phá Hoại mới có thể nhặt hộp quà!");
+        boolean isBattle = "BATTLE".equalsIgnoreCase(room.gameMode);
+        boolean isSaboteur = "SABOTEUR".equalsIgnoreCase(member != null ? member.team : "");
+        if (member == null || (!isBattle && !isSaboteur)) {
+            client.error("ONLY_SABOTEUR_PICKUP", "Chỉ người chơi được phép mới có thể nhặt hộp quà!");
             return;
         }
 
@@ -707,8 +735,10 @@ public final class PuzzleServer {
         Room room = playingRoom(client);
         if (room == null) return;
         Member member = room.members.get(client.account.username);
-        if (member == null || !"SABOTEUR".equalsIgnoreCase(member.team)) {
-            client.error("ONLY_SABOTEUR_USE", "Chỉ Đội Phá Hoại mới có thể sử dụng vật phẩm phá hoại!");
+        boolean isBattle = "BATTLE".equalsIgnoreCase(room.gameMode);
+        boolean isSaboteur = "SABOTEUR".equalsIgnoreCase(member != null ? member.team : "");
+        if (member == null || (!isBattle && !isSaboteur)) {
+            client.error("ONLY_SABOTEUR_USE", "Chỉ người chơi được phép mới có thể sử dụng vật phẩm!");
             return;
         }
         String itemType = message.get("itemType");
@@ -724,12 +754,13 @@ public final class PuzzleServer {
             client.error("ITEM_NOT_OWNED", "Bạn không sở hữu vật phẩm này.");
             return;
         }
-        if (Set.of("SLAP", "MAGNET", "FLASHLIGHT").contains(itemType)) {
+        if (Set.of("SLAP", "FLASHLIGHT").contains(itemType)) {
             String requestedTarget = targetUser;
             Member target = room.members.values().stream()
                     .filter(m -> m.username.equalsIgnoreCase(requestedTarget)).findFirst().orElse(null);
-            if (target == null || !target.connected || target == member || !"BUILDER".equalsIgnoreCase(target.team)) {
-                client.error("INVALID_TARGET", "Hãy chọn một người chơi thuộc Đội Thợ Xây đang trong phòng.");
+            boolean validTeam = isBattle || "BUILDER".equalsIgnoreCase(target != null ? target.team : "");
+            if (target == null || !target.connected || target == member || !validTeam) {
+                client.error("INVALID_TARGET", isBattle ? "Hãy chọn một người chơi đối thủ trong phòng." : "Hãy chọn một người chơi thuộc Đội Thợ Xây đang trong phòng.");
                 return;
             }
             targetUser = target.username;
@@ -749,83 +780,214 @@ public final class PuzzleServer {
                     }
                 }
                 if (piece == null || !piece.placed) {
-                    client.error("PIECE_NOT_PLACED", "Chỉ có thể dùng Xẻng lên mảnh đã ghép đúng!");
+                    client.error("PIECE_NOT_PLACED", "Chỉ có thể dùng Xà beng lên mảnh đã ghép đúng!");
                     return;
                 }
                 piece.placed = false;
                 piece.lockedBy = "";
                 piece.lockUntil = 0;
                 double angle = random.nextDouble() * 2 * Math.PI;
-                double dist = 0.2 + random.nextDouble() * 0.25;
+                double dist = ItemConfig.SHOVEL_SCATTER_MIN + random.nextDouble() * (ItemConfig.SHOVEL_SCATTER_MAX - ItemConfig.SHOVEL_SCATTER_MIN);
                 piece.x = (float) (Math.cos(angle) * dist);
                 piece.y = (float) (Math.sin(angle) * dist);
                 piece.rotation = random.nextInt(4) * 90;
 
+                // NẠY MẢNH SẼ LÀM TRỪ ĐI ĐIỂM CỦA NGƯỜI ĐÃ ĐẶT MẢNH ĐÓ:
+                int deductedPoints = isBattle ? Math.max(1, piece.points) : ItemConfig.DEFAULT_PIECE_POINTS;
+                String originalOwner = piece.placedBy;
+                if (originalOwner != null && !originalOwner.isBlank()) {
+                    Member placedMember = room.members.get(originalOwner);
+                    if (placedMember != null) {
+                        placedMember.score = Math.max(0, placedMember.score - deductedPoints);
+                    }
+                }
+                piece.placedBy = "";
+
                 int placedCount = (int) room.game.pieces.stream().filter(p -> p.placed).count();
                 broadcast(room, "PIECE_UNFIT", "pieceId", piece.id, "id", piece.id,
                         "x", piece.x, "y", piece.y, "rot", piece.rotation,
-                        "by", client.account.username, "placed", placedCount, "total", room.game.pieces.size());
+                        "by", client.account.username, "placed", placedCount, "total", room.game.pieces.size(),
+                        "deducted", deductedPoints, "deductedFrom", originalOwner != null ? originalOwner : "");
                 broadcastGame(room);
-                broadcastPlayerEvent(room, "⚠️ " + client.account.username + " (Phá Hoại) đã dùng XẺNG cạy bật mảnh #" + (piece.id + 1) + "!");
+                broadcastPlayerEvent(room, "⚠️ " + client.account.username + " đã dùng XÀ BENG cạy bật mảnh #" + (piece.id + 1) +
+                        (originalOwner != null && !originalOwner.isBlank() ? " (trừ " + deductedPoints + "đ của " + originalOwner + ")!" : "!"));
             }
             case "INK" -> {
                 List<Piece> unplaced = room.game.pieces.stream().filter(p -> !p.placed).collect(Collectors.toList());
-                if (unplaced.isEmpty()) unplaced = new ArrayList<>(room.game.pieces);
+                List<Piece> placed = room.game.pieces.stream().filter(p -> p.placed).collect(Collectors.toList());
+
+                // Nếu tất cả các mảnh ghép đã được đặt lên bảng
+                if (unplaced.isEmpty()) {
+                    client.error("ALL_PIECES_PLACED", "Tất cả mảnh ghép đã được đặt lên bảng! Bình mực không bị tiêu hao.");
+                    return;
+                }
+
                 Collections.shuffle(unplaced);
-                int count = Math.min(unplaced.size(), 3 + random.nextInt(3));
+                Collections.shuffle(placed);
+
+                int desiredCount = ItemConfig.INK_OBSCURE_COUNT + random.nextInt(ItemConfig.INK_RANDOM_EXTRA + 1);
+                List<Piece> selectedPieces = new ArrayList<>();
+
+                // Ưu tiên 1: Bôi đen tối đa các mảnh chưa đặt (unplaced)
+                int unplacedToTake = Math.min(unplaced.size(), desiredCount);
+                for (int i = 0; i < unplacedToTake; i++) {
+                    selectedPieces.add(unplaced.get(i));
+                }
+
+                // Ưu tiên 2: Nếu còn thiếu mảnh so với quota (do quá ít mảnh unplaced), mực sẽ văng bắn lên các mảnh đã ghép trên bảng
+                int remainingQuota = desiredCount - selectedPieces.size();
+                int placedToTake = Math.min(placed.size(), remainingQuota);
+                for (int i = 0; i < placedToTake; i++) {
+                    selectedPieces.add(placed.get(i));
+                }
+
                 List<String> affectedIds = new ArrayList<>();
-                for (int i = 0; i < count; i++) {
-                    affectedIds.add(String.valueOf(unplaced.get(i).id));
+                for (Piece p : selectedPieces) {
+                    affectedIds.add(String.valueOf(p.id));
                 }
                 String idsStr = String.join(",", affectedIds);
-                broadcast(room, "INK_SPLASH", "pieceIds", idsStr, "duration", 8.0, "by", client.account.username);
-                broadcastPlayerEvent(room, "🦑 " + client.account.username + " đã làm đổ lọ MỰC đen lên các mảnh ghép!");
+                broadcast(room, "INK_SPLASH", "pieceIds", idsStr, "duration", ItemConfig.INK_DURATION_SEC, "by", client.account.username);
+
+                if (placedToTake > 0) {
+                    broadcastPlayerEvent(room, "🦑 " + client.account.username + " đã làm đổ lọ MỰC bôi đen " + unplacedToTake + " mảnh chưa ghép và văng mực che mờ " + placedToTake + " mảnh trên bảng!");
+                } else {
+                    broadcastPlayerEvent(room, "🦑 " + client.account.username + " đã làm đổ lọ MỰC bôi đen và giấu điểm của " + unplacedToTake + " mảnh ghép!");
+                }
             }
             case "SLAP" -> {
                 if (targetUser == null || targetUser.isBlank()) {
                     client.error("NO_TARGET", "Phải chọn một người chơi mục tiêu để tát!");
                     return;
                 }
+                Piece targetHeldPiece = null;
                 for (Piece p : room.game.pieces) {
-                    if (p.lockedBy.equalsIgnoreCase(targetUser)) {
-                        p.lockedBy = "";
-                        p.lockUntil = 0;
-                        broadcast(room, "PIECE_RELEASED", "pieceId", p.id, "id", p.id,
-                                "x", p.x, "y", p.y, "rot", p.rotation);
+                    if (p.lockedBy.equalsIgnoreCase(targetUser) && !p.placed) {
+                        targetHeldPiece = p;
                         break;
                     }
                 }
-                broadcast(room, "SABOTAGE_TRIGGERED", "item", "SLAP", "target", targetUser, "by", client.account.username, "duration", 3.5);
-                broadcastPlayerEvent(room, "🧤 " + client.account.username + " đã TÁT vào mặt " + targetUser + " làm choáng 3.5 giây!");
+
+                int stolenPieceId = -1;
+                if (targetHeldPiece != null) {
+                    boolean canAttackerHold = isBattle || !"SABOTEUR".equalsIgnoreCase(member != null ? member.team : "");
+                    if (canAttackerHold) {
+                        // Nếu người tát đang cầm mảnh khác, thả mảnh cũ ra bàn trước
+                        for (Piece p : room.game.pieces) {
+                            if (p != targetHeldPiece && p.lockedBy.equalsIgnoreCase(client.account.username) && !p.placed) {
+                                p.lockedBy = "";
+                                p.lockUntil = 0;
+                                broadcast(room, "PIECE_RELEASED", "pieceId", p.id, "id", p.id,
+                                        "x", p.x, "y", p.y, "rot", p.rotation);
+                                break;
+                            }
+                        }
+
+                        // Mảnh của nạn nhân rơi vào tay người tát
+                        targetHeldPiece.lockedBy = client.account.username;
+                        targetHeldPiece.lockUntil = System.currentTimeMillis() + LOCK_TIMEOUT_MS;
+                        stolenPieceId = targetHeldPiece.id;
+
+                        broadcast(room, "PIECE_LOCKED", "pieceId", targetHeldPiece.id, "id", targetHeldPiece.id,
+                                "by", client.account.username, "x", targetHeldPiece.x, "y", targetHeldPiece.y, "rot", targetHeldPiece.rotation);
+                    } else {
+                        // Saboteur trong chế độ competitive không được cầm mảnh: đánh rơi mảnh xuống sàn/bàn
+                        targetHeldPiece.lockedBy = "";
+                        targetHeldPiece.lockUntil = 0;
+                        broadcast(room, "PIECE_RELEASED", "pieceId", targetHeldPiece.id, "id", targetHeldPiece.id,
+                                "x", targetHeldPiece.x, "y", targetHeldPiece.y, "rot", targetHeldPiece.rotation);
+                    }
+                }
+
+                broadcast(room, "SABOTAGE_TRIGGERED", "item", "SLAP", "target", targetUser, "by", client.account.username,
+                        "duration", ItemConfig.GLOVE_STUN_DURATION_SEC, "force", ItemConfig.GLOVE_KNOCKBACK_FORCE, "stolenPieceId", stolenPieceId);
+
+                if (stolenPieceId >= 0) {
+                    broadcastPlayerEvent(room, "🧤 " + client.account.username + " đã TÁT bay " + targetUser + " lên trời và cướp luôn mảnh #" + (stolenPieceId + 1) + " vào tay!");
+                } else if (targetHeldPiece != null) {
+                    broadcastPlayerEvent(room, "🧤 " + client.account.username + " đã TÁT bay " + targetUser + " lên trời làm văng rơi mảnh #" + (targetHeldPiece.id + 1) + "!");
+                } else {
+                    broadcastPlayerEvent(room, "🧤 " + client.account.username + " đã TÁT bay " + targetUser + " lên trời!");
+                }
             }
             case "MAGNET" -> {
-                if (targetUser == null || targetUser.isBlank()) {
-                    client.error("NO_TARGET", "Phải chọn một người chơi mục tiêu để hút nam châm!");
+                Piece targetPiece = null;
+                Member targetMember = null;
+
+                if (targetPieceId >= 0) {
+                    for (Piece p : room.game.pieces) {
+                        if (p.id == targetPieceId) {
+                            targetPiece = p;
+                            break;
+                        }
+                    }
+                    if (targetPiece == null || targetPiece.placed) {
+                        client.error("INVALID_PIECE", "Mảnh ghép không hợp lệ hoặc đã được ghép vào khung.");
+                        return;
+                    }
+                    long now = System.currentTimeMillis();
+                    if (!targetPiece.lockedBy.isEmpty() && !targetPiece.lockedBy.equalsIgnoreCase(client.account.username)) {
+                        if (targetPiece.lockUntil > now && !isBattle) {
+                            client.error("PIECE_LOCKED", "Mảnh ghép đang được người chơi khác cầm!");
+                            return;
+                        }
+                    }
+                } else if (targetUser != null && !targetUser.isBlank()) {
+                    String reqUser = targetUser;
+                    Member target = room.members.values().stream()
+                            .filter(m -> m.username.equalsIgnoreCase(reqUser)).findFirst().orElse(null);
+                    boolean validTeam = isBattle || "BUILDER".equalsIgnoreCase(target != null ? target.team : "");
+                    if (target == null || !target.connected || target == member || !validTeam) {
+                        client.error("INVALID_TARGET", isBattle ? "Hãy chọn một người chơi đối thủ trong phòng." : "Hãy chọn một người chơi thuộc Đội Thợ Xây đang trong phòng.");
+                        return;
+                    }
+                    targetMember = target;
+                    long now = System.currentTimeMillis();
+                    for (Piece p : room.game.pieces) {
+                        if (p.lockedBy.equalsIgnoreCase(target.username) && !p.placed && (p.lockUntil == 0 || p.lockUntil > now)) {
+                            targetPiece = p;
+                            break;
+                        }
+                    }
+                    if (targetPiece == null) {
+                        client.error("NO_PIECE_HELD", "Người chơi " + target.username + " hiện không cầm mảnh ghép nào! Nam châm không bị tiêu hao.");
+                        return;
+                    }
+                } else {
+                    client.error("NO_TARGET", "Hãy nhắm vào một mảnh ghép trên bàn hoặc người chơi để hút nam châm!");
                     return;
                 }
-                boolean dropped = false;
+
+                // Nếu người hút đang cầm mảnh khác, thả mảnh cũ ra bàn trước
                 for (Piece p : room.game.pieces) {
-                    if (p.lockedBy.equalsIgnoreCase(targetUser)) {
+                    if (p != targetPiece && p.lockedBy.equalsIgnoreCase(client.account.username) && !p.placed) {
                         p.lockedBy = "";
                         p.lockUntil = 0;
-                        p.x += (random.nextFloat() - 0.5f) * 0.3f;
-                        p.y += (random.nextFloat() - 0.5f) * 0.3f;
                         broadcast(room, "PIECE_RELEASED", "pieceId", p.id, "id", p.id,
                                 "x", p.x, "y", p.y, "rot", p.rotation);
-                        dropped = true;
                         break;
                     }
                 }
-                broadcast(room, "SABOTAGE_TRIGGERED", "item", "MAGNET", "target", targetUser, "by", client.account.username, "dropped", dropped);
-                broadcastPlayerEvent(room, "🧲 " + client.account.username + " đã kích hoạt NAM CHÂM lên " + targetUser + "!");
+
+                targetPiece.lockedBy = client.account.username;
+                targetPiece.lockUntil = System.currentTimeMillis() + LOCK_TIMEOUT_MS;
+                broadcast(room, "PIECE_LOCKED", "pieceId", targetPiece.id, "id", targetPiece.id,
+                        "by", client.account.username, "x", targetPiece.x, "y", targetPiece.y, "rot", targetPiece.rotation);
+                broadcast(room, "SABOTAGE_TRIGGERED", "item", "MAGNET",
+                        "target", targetMember != null ? targetMember.username : "",
+                        "by", client.account.username, "pieceId", targetPiece.id);
+                if (targetMember != null) {
+                    broadcastPlayerEvent(room, "🧲 " + client.account.username + " đã dùng NAM CHÂM cướp mảnh #" + (targetPiece.id + 1) + " từ tay " + targetMember.username + "!");
+                } else {
+                    broadcastPlayerEvent(room, "🧲 " + client.account.username + " đã dùng NAM CHÂM hút mảnh #" + (targetPiece.id + 1) + " lên tay!");
+                }
             }
             case "FLASHLIGHT" -> {
                 if (targetUser == null || targetUser.isBlank()) {
                     client.error("NO_TARGET", "Phải chọn một người chơi mục tiêu để chiếu đèn pin!");
                     return;
                 }
-                broadcast(room, "SABOTAGE_TRIGGERED", "item", "FLASHLIGHT", "target", targetUser, "by", client.account.username, "duration", 3.5);
-                broadcastPlayerEvent(room, "🔦 " + client.account.username + " đã rọi ĐÈN PIN làm chói mắt " + targetUser + "!");
+                broadcast(room, "SABOTAGE_TRIGGERED", "item", "FLASHLIGHT", "target", targetUser, "by", client.account.username, "duration", ItemConfig.FLASHLIGHT_DURATION_SEC);
+                broadcastPlayerEvent(room, "🔦 " + client.account.username + " đã rọi ĐÈN PIN làm chói mắt " + targetUser + " trong " + ItemConfig.FLASHLIGHT_DURATION_SEC + " giây!");
             }
         }
         member.heldItem = "";
@@ -843,7 +1005,7 @@ public final class PuzzleServer {
             client.error("NOT_READY", "Tất cả người chơi khác trong phòng phải sẵn sàng.");
             return;
         }
-        if ("COMPETITIVE".equals(room.gameMode)) {
+        if ("COMPETITIVE".equalsIgnoreCase(room.gameMode)) {
             PuzzleDefinition def = getPuzzle(room.puzzleId);
             room.targetTimeSeconds = Math.max(def.rows, def.columns) * 60;
 
@@ -868,6 +1030,13 @@ public final class PuzzleServer {
             List<String> saboteurs = memberList.stream().filter(m -> "SABOTEUR".equals(m.team)).map(m -> m.username).toList();
             List<String> builders = memberList.stream().filter(m -> "BUILDER".equals(m.team)).map(m -> m.username).toList();
             broadcastPlayerEvent(room, "🎲 Hệ thống đã phân đội ngẫu nhiên: [Thợ Xây: " + String.join(", ", builders) + "] | [Phá Hoại: " + String.join(", ", saboteurs) + "]!");
+        } else if ("BATTLE".equalsIgnoreCase(room.gameMode)) {
+            PuzzleDefinition def = getPuzzle(room.puzzleId);
+            room.targetTimeSeconds = Math.max(def.rows, def.columns) * 60;
+            for (Member m : room.members.values()) {
+                m.team = "BATTLE";
+            }
+            broadcastPlayerEvent(room, "⚔️ Chế độ Tranh Đấu đã bắt đầu! Đua điểm tự do, ai cao điểm nhất sẽ chiến thắng!");
         } else {
             for (Member m : room.members.values()) {
                 m.team = "BUILDER";
@@ -914,7 +1083,36 @@ public final class PuzzleServer {
                 game.pieces.add(piece);
             }
         }
+        int total = game.pieces.size();
+        List<Integer> pointList = generateRarityPoints(total, seeded);
+        for (int i = 0; i < total; i++) {
+            game.pieces.get(i).points = pointList.get(i);
+        }
         return game;
+    }
+
+    private List<Integer> generateRarityPoints(int total, Random rand) {
+        List<Integer> list = new ArrayList<>(total);
+        if (total <= 0) return list;
+
+        int count5 = Math.max(total >= 5 ? 1 : 0, Math.round(total * 0.05f));
+        int count4 = Math.max(total >= 10 ? 1 : 0, Math.round(total * 0.10f));
+        int count3 = Math.max(total >= 15 ? 1 : 0, Math.round(total * 0.15f));
+        int count2 = Math.round(total * 0.25f);
+        int count1 = total - (count5 + count4 + count3 + count2);
+        if (count1 < 0) { count2 += count1; count1 = 0; }
+
+        for (int i = 0; i < count5; i++) list.add(5);
+        for (int i = 0; i < count4; i++) list.add(4);
+        for (int i = 0; i < count3; i++) list.add(3);
+        for (int i = 0; i < count2; i++) list.add(2);
+        for (int i = 0; i < count1; i++) list.add(1);
+
+        while (list.size() < total) list.add(1);
+        while (list.size() > total) list.remove(list.size() - 1);
+
+        Collections.shuffle(list, rand);
+        return list;
     }
 
     private void sendCurrentGame(ClientHandler client) {
@@ -1033,12 +1231,15 @@ public final class PuzzleServer {
         float dy = piece.y - targetY;
         boolean clientPlaced = message.bool("placed", false) || message.bool("snapped", false);
         boolean correct = clientPlaced || (dx * dx + dy * dy <= .08f && normalizeRotation(piece.rotation) == 0);
+        int awardedPoints = ItemConfig.DEFAULT_PIECE_POINTS;
         if (correct) {
             piece.x = targetX;
             piece.y = targetY;
             piece.placed = true;
+            piece.placedBy = client.account.username;
+            awardedPoints = "BATTLE".equalsIgnoreCase(room.gameMode) ? Math.max(1, piece.points) : ItemConfig.DEFAULT_PIECE_POINTS;
             Member member = room.members.get(client.account.username);
-            if (member != null) member.score++;
+            if (member != null) member.score += awardedPoints;
         }
         piece.lockedBy = "";
         piece.lockUntil = 0;
@@ -1046,7 +1247,7 @@ public final class PuzzleServer {
         int placedCount = (int) room.game.pieces.stream().filter(p -> p.placed).count();
         broadcast(room, "PIECE_PLACED", "pieceId", piece.id, "id", piece.id,
                 "x", piece.x, "y", piece.y, "rot", piece.rotation, "by", client.account.username,
-                "placed", placedCount, "total", room.game.pieces.size());
+                "placed", placedCount, "total", room.game.pieces.size(), "points", awardedPoints);
         broadcastGame(room);
         if (correct && room.game.pieces.stream().allMatch(item -> item.placed)) completeGame(room);
     }
@@ -1102,6 +1303,9 @@ public final class PuzzleServer {
         if ("COMPETITIVE".equalsIgnoreCase(room.gameMode)) {
             broadcast(room, "GAME_OVER", "result", "BUILDERS_WIN", "winnerTeam", "BUILDER");
             broadcastPlayerEvent(room, "🎉 ĐỘI THỢ XÂY (BUILDERS) ĐÃ CHIẾN THẮNG vì đã hoàn thành tranh trong thời gian quy định!");
+        } else if ("BATTLE".equalsIgnoreCase(room.gameMode)) {
+            broadcast(room, "GAME_OVER", "result", "BATTLE_WIN", "winner", winnerName, "winnerTeam", "BATTLE", "score", winner != null ? winner.score : 0);
+            broadcastPlayerEvent(room, "🏆 " + winnerName + " ĐÃ CHIẾN THẮNG CHẾ ĐỘ TRANH ĐẤU với " + (winner != null ? winner.score : 0) + " điểm!");
         }
         saveGame(room, "Hoàn thành " + Instant.now(), false);
         broadcastGame(room);
@@ -1287,7 +1491,7 @@ public final class PuzzleServer {
         List<List<?>> roomRows = new ArrayList<>();
         for (Room room : rooms.values()) {
             if (room.members.isEmpty()) continue;
-            if ("COMPETITIVE".equalsIgnoreCase(room.gameMode) && !"WAITING".equals(room.state)) continue;
+            if (("COMPETITIVE".equalsIgnoreCase(room.gameMode) || "BATTLE".equalsIgnoreCase(room.gameMode)) && !"WAITING".equals(room.state)) continue;
             roomRows.add(List.of(room.id, room.name, room.host, room.members.size(), room.maxPlayers,
                     room.state, room.puzzleId, room.hasSave, room.themeId, room.isPrivate(), room.targetTimeSeconds, room.gameMode != null ? room.gameMode : "CLASSIC"));
         }
@@ -1336,7 +1540,7 @@ public final class PuzzleServer {
         int placed = 0;
         for (Piece piece : game.pieces) {
             if (piece.placed) placed++;
-            pieces.add(List.of(piece.id, piece.row, piece.column, piece.x, piece.y, piece.rotation, piece.placed, piece.lockedBy));
+            pieces.add(List.of(piece.id, piece.row, piece.column, piece.x, piece.y, piece.rotation, piece.placed, piece.lockedBy, piece.points));
         }
         List<List<?>> players = new ArrayList<>();
         for (Member member : room.members.values()) {
@@ -1499,15 +1703,25 @@ public final class PuzzleServer {
                                 setRoomStatuses(room, "IN_ROOM");
                                 broadcast(room, "GAME_OVER", "result", "SABOTEURS_WIN", "winnerTeam", "SABOTEUR");
                                 broadcastPlayerEvent(room, "🏆 HẾT GIỜ! Đội Phá Hoại (Saboteurs) đã giành CHIẾN THẮNG!");
+                            } else if ("BATTLE".equalsIgnoreCase(room.gameMode)) {
+                                room.state = "COMPLETE";
+                                room.game.completed = true;
+                                setRoomStatuses(room, "IN_ROOM");
+                                Member winner = room.members.values().stream()
+                                        .max(Comparator.comparingInt(member -> member.score))
+                                        .orElse(null);
+                                String winnerName = winner != null ? winner.username : "";
+                                int topScore = winner != null ? winner.score : 0;
+                                broadcast(room, "GAME_OVER", "result", "BATTLE_TIMEOUT", "winner", winnerName, "winnerTeam", "BATTLE", "score", topScore);
+                                broadcastPlayerEvent(room, "⏱️ HẾT GIỜ TRANH ĐẤU! 🏆 " + winnerName + " CHIẾN THẮNG với " + topScore + " điểm!");
                             } else {
                                 broadcast(room, "GAME_TIMEOUT");
                                 broadcastPlayerEvent(room, "Đã hết thời gian mục tiêu! Chủ phòng có thể chọn tiếp tục hoặc bắt đầu lại.");
                             }
                             changed = true;
                         }
-                        if ("COMPETITIVE".equalsIgnoreCase(room.gameMode) && !room.game.completed && !room.game.timedOut) {
-                            long spawnInterval = 12_000L;
-                            if (now - room.lastItemSpawn >= spawnInterval && room.worldItems.size() < 6) {
+                        if (("COMPETITIVE".equalsIgnoreCase(room.gameMode) || "BATTLE".equalsIgnoreCase(room.gameMode)) && !room.game.completed && !room.game.timedOut) {
+                            if (now - room.lastItemSpawn >= ItemConfig.GIFTBOX_SPAWN_INTERVAL_MS && room.worldItems.size() < ItemConfig.GIFTBOX_MAX_COUNT) {
                                 room.lastItemSpawn = now;
                                 WorldItem item = spawnRandomWorldItem(room);
                                 room.worldItems.add(item);
@@ -1912,5 +2126,7 @@ public final class PuzzleServer {
         boolean placed;
         String lockedBy = "";
         long lockUntil;
+        String placedBy = "";
+        int points = 1;
     }
 }

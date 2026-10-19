@@ -16,8 +16,8 @@ TagManager:
   - PlayerHinder
   - PieceHinder
   - Ground
-  - 
-  - 
+  - LobbyStage
+  - MapPreview
   - 
   - 
   - 

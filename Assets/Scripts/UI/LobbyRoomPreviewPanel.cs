@@ -29,6 +29,17 @@ namespace PuzzleOnline.UI
         [SerializeField] private RawImage puzzlePreviewImage;
         [SerializeField] private Image puzzlePreviewSpriteImage;
 
+        private enum PreviewCameraMode
+        {
+            GenericOrbit,
+            ClassroomIndoor,
+            SakuraTableFocus,
+            ForestTableFocus
+        }
+
+        private const string MapLayerName = "MapPreview";
+        private const string StageLayerName = "LobbyStage";
+
         // Studio 3D riêng biệt để render Map Preview trực tiếp từ Prefab
         private GameObject _mapStudioRoot;
         private Camera _mapCam;
@@ -37,8 +48,126 @@ namespace PuzzleOnline.UI
         private string _currentLoadedThemeId = "";
         private Vector3 _mapCenter = Vector3.zero;
         private float _mapRadius = 15f;
+        private Light _studioDirLight;
+        private PreviewCameraMode _camMode = PreviewCameraMode.GenericOrbit;
+        private Vector3 _focalTarget = Vector3.zero;
 
         private static readonly Dictionary<string, Texture2D> _proceduralThemeTextures = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
+
+        public static int GetMapLayer()
+        {
+            int layer = LayerMask.NameToLayer(MapLayerName);
+            return layer >= 0 ? layer : 0;
+        }
+
+        public static void SetLayerRecursively(GameObject obj, int layer)
+        {
+            if (obj == null) return;
+            obj.layer = layer;
+            for (int i = 0; i < obj.transform.childCount; i++)
+            {
+                SetLayerRecursively(obj.transform.GetChild(i).gameObject, layer);
+            }
+        }
+
+        private static Transform FindChildByKeywords(Transform parent, params string[] keywords)
+        {
+            if (parent == null || keywords == null || keywords.Length == 0) return null;
+            for (int i = 0; i < parent.childCount; i++)
+            {
+                var child = parent.GetChild(i);
+                for (int k = 0; k < keywords.Length; k++)
+                {
+                    if (child.name.IndexOf(keywords[k], StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return child;
+                    }
+                }
+                var deeper = FindChildByKeywords(child, keywords);
+                if (deeper != null) return deeper;
+            }
+            return null;
+        }
+
+        private static Transform CreateProceduralPicnicTable(Transform parent, Vector3 localPos, int layer)
+        {
+            var tableRoot = new GameObject("PicnicTable");
+            tableRoot.transform.SetParent(parent, false);
+            tableRoot.transform.localPosition = localPos;
+
+            Color woodColor = new Color(0.48f, 0.32f, 0.18f);      // Màu gỗ mộc ấm áp
+            Color darkWoodColor = new Color(0.36f, 0.23f, 0.12f);  // Màu chân gỗ sẫm
+
+            Renderer sampleRenderer = parent.GetComponentInChildren<Renderer>();
+            Material woodMat;
+            if (sampleRenderer != null && sampleRenderer.sharedMaterial != null)
+            {
+                woodMat = new Material(sampleRenderer.sharedMaterial);
+            }
+            else
+            {
+                var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard") ?? Shader.Find("Diffuse");
+                woodMat = new Material(shader);
+            }
+            woodMat.color = woodColor;
+
+            Material darkWoodMat = new Material(woodMat);
+            darkWoodMat.color = darkWoodColor;
+
+            // 1. Mặt bàn chính
+            var top = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            top.name = "TableTop";
+            top.transform.SetParent(tableRoot.transform, false);
+            top.transform.localPosition = new Vector3(0f, 0.82f, 0f);
+            top.transform.localScale = new Vector3(2.2f, 0.08f, 1.1f);
+            var topRen = top.GetComponent<Renderer>();
+            if (topRen != null) topRen.sharedMaterial = woodMat;
+
+            // 2. 4 chân bàn
+            Vector3[] legOffsets = new Vector3[]
+            {
+                new Vector3(-0.9f, 0.40f, -0.45f),
+                new Vector3(0.9f, 0.40f, -0.45f),
+                new Vector3(-0.9f, 0.40f, 0.45f),
+                new Vector3(0.9f, 0.40f, 0.45f)
+            };
+            for (int i = 0; i < legOffsets.Length; i++)
+            {
+                var leg = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                leg.name = $"Leg_{i}";
+                leg.transform.SetParent(tableRoot.transform, false);
+                leg.transform.localPosition = legOffsets[i];
+                leg.transform.localScale = new Vector3(0.09f, 0.80f, 0.09f);
+                var legRen = leg.GetComponent<Renderer>();
+                if (legRen != null) legRen.sharedMaterial = darkWoodMat;
+            }
+
+            // 3. 2 ghế dài (benches) hai bên
+            var bench1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            bench1.name = "Bench_Front";
+            bench1.transform.SetParent(tableRoot.transform, false);
+            bench1.transform.localPosition = new Vector3(0f, 0.48f, -0.85f);
+            bench1.transform.localScale = new Vector3(2.2f, 0.06f, 0.32f);
+            var b1Ren = bench1.GetComponent<Renderer>();
+            if (b1Ren != null) b1Ren.sharedMaterial = woodMat;
+
+            var bench2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            bench2.name = "Bench_Back";
+            bench2.transform.SetParent(tableRoot.transform, false);
+            bench2.transform.localPosition = new Vector3(0f, 0.48f, 0.85f);
+            bench2.transform.localScale = new Vector3(2.2f, 0.06f, 0.32f);
+            var b2Ren = bench2.GetComponent<Renderer>();
+            if (b2Ren != null) b2Ren.sharedMaterial = woodMat;
+
+            // Loại bỏ Collider của các primitive vừa tạo để an toàn tuyệt đối
+            foreach (var col in tableRoot.GetComponentsInChildren<Collider>(true))
+            {
+                UnityEngine.Object.DestroyImmediate(col);
+            }
+
+            SetLayerRecursively(tableRoot, layer);
+            return tableRoot.transform;
+        }
 
         private void Awake()
         {
@@ -60,8 +189,10 @@ namespace PuzzleOnline.UI
             if (inRoom)
             {
                 InitMapStudio();
-                SetVisible(true);
-                RefreshPreviews();
+                var lobbyCtrl = FindFirstObjectByType<LobbyUIController>();
+                bool visible = lobbyCtrl == null || !lobbyCtrl.IsFriendsOverlayVisible;
+                SetVisible(visible);
+                if (visible) RefreshPreviews();
             }
             else
             {
@@ -127,6 +258,9 @@ namespace PuzzleOnline.UI
         {
             if (_mapStudioRoot != null) return;
 
+            int mapLayer = GetMapLayer();
+            int stageLayer = LayerMask.NameToLayer(StageLayerName);
+
             // Đặt Studio ở vị trí biệt lập, không trùng với phòng chờ 3D (250, 100, 250) hay Main Scene (0, 0, 0)
             _mapStudioRoot = new GameObject("[LobbyMapPreview_Studio]");
             _mapStudioRoot.transform.position = new Vector3(500f, -200f, 500f);
@@ -140,7 +274,7 @@ namespace PuzzleOnline.UI
             _mapCam.fieldOfView = 50f;
             _mapCam.nearClipPlane = 0.3f;
             _mapCam.farClipPlane = 120f;
-            _mapCam.cullingMask = -1;
+            _mapCam.cullingMask = 1 << mapLayer; // Chỉ render layer MapPreview, không thấy stage 4 người chơi
 
             _mapRenderTexture = new RenderTexture(640, 360, 24, RenderTextureFormat.ARGB32);
             _mapRenderTexture.antiAliasing = 2;
@@ -153,7 +287,7 @@ namespace PuzzleOnline.UI
                 mapPreviewImage.color = Color.white;
             }
 
-            // Ánh sáng cho studio map
+            // Ánh sáng cho studio map (cô lập trên layer MapPreview, không chiếu vào LobbyStage)
             var lightGo = new GameObject("MapStudioLight");
             lightGo.transform.SetParent(_mapStudioRoot.transform, false);
             lightGo.transform.localPosition = new Vector3(0f, 30f, 0f);
@@ -162,7 +296,23 @@ namespace PuzzleOnline.UI
             var dirLight = lightGo.AddComponent<Light>();
             dirLight.type = LightType.Directional;
             dirLight.color = new Color(1f, 0.96f, 0.88f);
-            dirLight.intensity = 1.3f;
+            dirLight.intensity = 1.25f;
+            dirLight.cullingMask = 1 << mapLayer; // Chỉ chiếu sáng studio preview
+            if (stageLayer >= 0)
+            {
+                dirLight.cullingMask &= ~(1 << stageLayer);
+            }
+            _studioDirLight = dirLight;
+
+            // Cô lập studio khỏi các đèn Directional Light bên ngoài scene
+            var allLights = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+            foreach (var l in allLights)
+            {
+                if (l != null && l != _studioDirLight && l.type == LightType.Directional)
+                {
+                    l.cullingMask &= ~(1 << mapLayer);
+                }
+            }
 
             _mapStudioRoot.SetActive(gameObject.activeInHierarchy);
         }
@@ -170,18 +320,62 @@ namespace PuzzleOnline.UI
         private void Update()
         {
             if (_mapStudioRoot == null || !_mapStudioRoot.activeInHierarchy || _mapCam == null) return;
+            if (_currentMapInstance == null) return;
 
-            // Camera quay chậm nhẹ nhàng tạo góc nhìn toàn cảnh sinh động (Slow cinematic orbit)
-            if (_currentMapInstance != null)
+            switch (_camMode)
             {
-                float t = Time.time * 0.18f;
-                float dist = Mathf.Clamp(_mapRadius * 0.9f, 8f, 35f);
-                float camX = _mapCenter.x + Mathf.Cos(t) * dist;
-                float camZ = _mapCenter.z + Mathf.Sin(t) * dist;
-                float camY = _mapCenter.y + dist * 0.45f;
+                case PreviewCameraMode.ClassroomIndoor:
+                {
+                    // Camera đặt bên trong phòng học, chuyển động sway nhẹ nhàng qua lại quan sát dãy bàn học
+                    float sway = Mathf.Sin(Time.time * 0.12f) * 0.35f;
+                    float camX = _focalTarget.x - 2.5f + sway;
+                    float camY = _focalTarget.y + 0.8f + Mathf.Cos(Time.time * 0.10f) * 0.05f;
+                    float camZ = _focalTarget.z - 3.1f - sway * 0.25f;
 
-                _mapCam.transform.position = new Vector3(camX, camY, camZ);
-                _mapCam.transform.LookAt(_mapCenter + Vector3.up * (_mapRadius * 0.12f));
+                    _mapCam.transform.position = new Vector3(camX, camY, camZ);
+                    _mapCam.transform.LookAt(_focalTarget + Vector3.up * 0.1f);
+                    break;
+                }
+                case PreviewCameraMode.SakuraTableFocus:
+                {
+                    // Camera xoay quanh bàn xếp hình ở cự ly gần (~5.6m), nhìn rõ mặt bàn và các tán cây hoa anh đào
+                    float t = Time.time * 0.15f;
+                    float dist = 5.6f;
+                    float camX = _focalTarget.x + Mathf.Cos(t) * dist;
+                    float camZ = _focalTarget.z + Mathf.Sin(t) * dist;
+                    float camY = _focalTarget.y + 1.85f + Mathf.Sin(t * 0.6f) * 0.12f;
+
+                    _mapCam.transform.position = new Vector3(camX, camY, camZ);
+                    _mapCam.transform.LookAt(_focalTarget + Vector3.up * 0.2f);
+                    break;
+                }
+                case PreviewCameraMode.ForestTableFocus:
+                {
+                    // Camera xoay quanh bàn picnic giữa rừng ở cự ly gần (~5.8m), nhìn rõ mặt bàn chơi puzzle và tán rừng xanh
+                    float t = Time.time * 0.15f;
+                    float dist = 5.8f;
+                    float camX = _focalTarget.x + Mathf.Cos(t) * dist;
+                    float camZ = _focalTarget.z + Mathf.Sin(t) * dist;
+                    float camY = _focalTarget.y + 1.85f + Mathf.Sin(t * 0.6f) * 0.12f;
+
+                    _mapCam.transform.position = new Vector3(camX, camY, camZ);
+                    _mapCam.transform.LookAt(_focalTarget + Vector3.up * 0.2f);
+                    break;
+                }
+                case PreviewCameraMode.GenericOrbit:
+                default:
+                {
+                    // Camera quay chậm nhẹ nhàng tạo góc nhìn toàn cảnh sinh động
+                    float t = Time.time * 0.18f;
+                    float dist = Mathf.Clamp(_mapRadius * 0.9f, 8f, 35f);
+                    float camX = _mapCenter.x + Mathf.Cos(t) * dist;
+                    float camZ = _mapCenter.z + Mathf.Sin(t) * dist;
+                    float camY = _mapCenter.y + dist * 0.45f;
+
+                    _mapCam.transform.position = new Vector3(camX, camY, camZ);
+                    _mapCam.transform.LookAt(_mapCenter + Vector3.up * (_mapRadius * 0.12f));
+                    break;
+                }
             }
         }
 
@@ -190,6 +384,13 @@ namespace PuzzleOnline.UI
             var net = PuzzleNetworkManager.Instance;
             if (net != null && net.CurrentRoom != null)
             {
+                var lobbyCtrl = FindFirstObjectByType<LobbyUIController>();
+                if (lobbyCtrl != null && lobbyCtrl.IsFriendsOverlayVisible)
+                {
+                    // Đang mở danh sách Mời bạn: giữ nguyên trạng thái ẩn của Preview
+                    return;
+                }
+
                 SetVisible(true);
                 RefreshPreviews();
             }
@@ -248,6 +449,25 @@ namespace PuzzleOnline.UI
                     _currentMapInstance.transform.localPosition = Vector3.zero;
                     _currentLoadedThemeId = themeId;
 
+                    int mapLayer = GetMapLayer();
+                    int stageLayer = LayerMask.NameToLayer(StageLayerName);
+                    SetLayerRecursively(_currentMapInstance, mapLayer);
+
+                    // Xử lý và giới hạn cường độ ánh sáng của các đèn có sẵn trong prefab môi trường
+                    foreach (var l in _currentMapInstance.GetComponentsInChildren<Light>(true))
+                    {
+                        l.cullingMask = 1 << mapLayer;
+                        if (stageLayer >= 0)
+                        {
+                            l.cullingMask &= ~(1 << stageLayer);
+                        }
+                        // Tránh việc point light nội thất (như Point 1 trong Classroom có intensity = 10) gây lóa trắng
+                        if (l.intensity > 2.0f)
+                        {
+                            l.intensity = 1.8f;
+                        }
+                    }
+
                     // Loại bỏ Camera, AudioListener, Collider trong prefab môi trường để an toàn tuyệt đối
                     foreach (var cam in _currentMapInstance.GetComponentsInChildren<Camera>(true)) DestroyImmediate(cam.gameObject);
                     foreach (var al in _currentMapInstance.GetComponentsInChildren<AudioListener>(true)) DestroyImmediate(al);
@@ -266,11 +486,93 @@ namespace PuzzleOnline.UI
                     _mapCenter = hasB ? b.center : _mapStudioRoot.transform.position;
                     _mapRadius = hasB ? Mathf.Clamp(b.extents.magnitude, 6f, 35f) : 15f;
 
-                    if (_mapCam != null)
+                    // Quyết định chế độ Camera dựa theo Theme
+                    if (cleanName.IndexOf("Classroom", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
-                        _mapCam.transform.position = _mapCenter + new Vector3(-_mapRadius * 0.7f, _mapRadius * 0.45f, -_mapRadius * 0.7f);
-                        _mapCam.transform.LookAt(_mapCenter + Vector3.up * (_mapRadius * 0.12f));
-                        _mapCam.enabled = true;
+                        _camMode = PreviewCameraMode.ClassroomIndoor;
+                        var table = FindChildByKeywords(_currentMapInstance.transform, "Table", "Desk", "Positions");
+                        if (table != null)
+                        {
+                            _focalTarget = table.position + Vector3.up * 0.45f;
+                        }
+                        else
+                        {
+                            _focalTarget = _currentMapInstance.transform.TransformPoint(new Vector3(0f, 0.85f, 0f));
+                        }
+
+                        if (_mapCam != null)
+                        {
+                            _mapCam.fieldOfView = 55f;
+                            _mapCam.transform.position = _focalTarget + new Vector3(-2.6f, 0.8f, -3.1f);
+                            _mapCam.transform.LookAt(_focalTarget + Vector3.up * 0.1f);
+                            _mapCam.enabled = true;
+                        }
+                        if (_studioDirLight != null) _studioDirLight.intensity = 0.85f;
+                    }
+                    else if (cleanName.IndexOf("Sakura", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        _camMode = PreviewCameraMode.SakuraTableFocus;
+                        var table = FindChildByKeywords(_currentMapInstance.transform, "Table", "picnic", "Positions");
+                        if (table != null)
+                        {
+                            _focalTarget = table.position + Vector3.up * 0.35f;
+                        }
+                        else
+                        {
+                            _focalTarget = _mapCenter;
+                        }
+
+                        if (_mapCam != null)
+                        {
+                            _mapCam.fieldOfView = 50f;
+                            float dist = 5.6f;
+                            _mapCam.transform.position = _focalTarget + new Vector3(dist * 0.7f, 1.85f, dist * 0.7f);
+                            _mapCam.transform.LookAt(_focalTarget + Vector3.up * 0.2f);
+                            _mapCam.enabled = true;
+                        }
+                        if (_studioDirLight != null) _studioDirLight.intensity = 1.25f;
+                    }
+                    else if (cleanName.IndexOf("Forest", StringComparison.OrdinalIgnoreCase) >= 0 || cleanName.IndexOf("Nature", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        _camMode = PreviewCameraMode.ForestTableFocus;
+                        var table = FindChildByKeywords(_currentMapInstance.transform, "Table", "picnic", "Positions");
+                        if (table == null)
+                        {
+                            table = CreateProceduralPicnicTable(_currentMapInstance.transform, new Vector3(-0.59f, 0f, -5.89f), mapLayer);
+                        }
+
+                        if (table != null)
+                        {
+                            _focalTarget = table.position + Vector3.up * 0.45f;
+                        }
+                        else
+                        {
+                            _focalTarget = _currentMapInstance.transform.TransformPoint(new Vector3(-0.59f, 0.85f, -5.89f));
+                        }
+
+                        if (_mapCam != null)
+                        {
+                            _mapCam.fieldOfView = 50f;
+                            float dist = 5.8f;
+                            _mapCam.transform.position = _focalTarget + new Vector3(dist * 0.7f, 1.85f, dist * 0.7f);
+                            _mapCam.transform.LookAt(_focalTarget + Vector3.up * 0.2f);
+                            _mapCam.enabled = true;
+                        }
+                        if (_studioDirLight != null) _studioDirLight.intensity = 1.25f;
+                    }
+                    else
+                    {
+                        _camMode = PreviewCameraMode.GenericOrbit;
+                        _focalTarget = _mapCenter;
+
+                        if (_mapCam != null)
+                        {
+                            _mapCam.fieldOfView = 50f;
+                            _mapCam.transform.position = _mapCenter + new Vector3(-_mapRadius * 0.7f, _mapRadius * 0.45f, -_mapRadius * 0.7f);
+                            _mapCam.transform.LookAt(_mapCenter + Vector3.up * (_mapRadius * 0.12f));
+                            _mapCam.enabled = true;
+                        }
+                        if (_studioDirLight != null) _studioDirLight.intensity = 1.3f;
                     }
                 }
 

@@ -20,6 +20,13 @@ namespace PuzzleSystem.Gameplay
         public bool isBeingHeld = false;
         public string lockedByPlayer = "";
 
+        [Header("Battle Mode Score")]
+        public int points = 1;
+        public bool isObscuredByInk = false;
+        private TextMesh pointsTextMesh;
+        private LineRenderer borderLine;
+        private Material borderLineMaterial;
+
         [Header("Remote Sync")]
         private Vector3 targetRemotePos;
         private Quaternion targetRemoteRot;
@@ -89,9 +96,29 @@ namespace PuzzleSystem.Gameplay
 
         public void SetRemoteLock(string playerName)
         {
+            string oldPlayer = lockedByPlayer;
             bool wasRemote = isRemoteControlled;
             lockedByPlayer = playerName ?? "";
             if (rb != null) rb.isKinematic = isRemoteControlled;
+
+            var syncMgr = FindFirstObjectByType<PuzzlePlayerSyncManager>();
+            if (syncMgr != null && syncMgr.RemoteAvatars != null)
+            {
+                if (isRemoteControlled && !wasRemote && !isPlaced)
+                {
+                    if (!string.IsNullOrEmpty(lockedByPlayer) && syncMgr.RemoteAvatars.TryGetValue(lockedByPlayer, out var avatar) && avatar != null)
+                    {
+                        avatar.GetComponent<PuzzleOnline.Gameplay.Competitive.PlayerAuraVisual>()?.SetAura(true, points);
+                    }
+                }
+                else if (!isRemoteControlled && wasRemote)
+                {
+                    if (!string.IsNullOrEmpty(oldPlayer) && syncMgr.RemoteAvatars.TryGetValue(oldPlayer, out var oldAvatar) && oldAvatar != null)
+                    {
+                        oldAvatar.GetComponent<PuzzleOnline.Gameplay.Competitive.PlayerAuraVisual>()?.SetAura(false);
+                    }
+                }
+            }
 
             if (isRemoteControlled && !wasRemote && !isPlaced)
             {
@@ -104,7 +131,8 @@ namespace PuzzleSystem.Gameplay
                 // Đổi ánh màu báo hiệu đang có người giữ
                 if (pieceMaterial != null)
                 {
-                    Color heldColor = Color.Lerp(originalColor, new Color(1f, 0.75f, 0.4f), 0.45f);
+                    Color baseCol = isObscuredByInk ? new Color(0.08f, 0.08f, 0.08f, 1f) : originalColor;
+                    Color heldColor = Color.Lerp(baseCol, new Color(1f, 0.75f, 0.4f), 0.45f);
                     if (pieceMaterial.HasProperty("_BaseColor")) pieceMaterial.SetColor("_BaseColor", heldColor);
                     else if (pieceMaterial.HasProperty("_Color")) pieceMaterial.color = heldColor;
                 }
@@ -117,11 +145,12 @@ namespace PuzzleSystem.Gameplay
                 targetRemotePos = current;
                 hasRemoteTarget = true;
 
-                // Khôi phục màu gốc
+                // Khôi phục màu gốc (hoặc màu mực nếu vẫn đang trong thời gian bôi đen)
                 if (pieceMaterial != null)
                 {
-                    if (pieceMaterial.HasProperty("_BaseColor")) pieceMaterial.SetColor("_BaseColor", originalColor);
-                    else if (pieceMaterial.HasProperty("_Color")) pieceMaterial.color = originalColor;
+                    Color targetCol = isObscuredByInk ? new Color(0.08f, 0.08f, 0.08f, 1f) : originalColor;
+                    if (pieceMaterial.HasProperty("_BaseColor")) pieceMaterial.SetColor("_BaseColor", targetCol);
+                    else if (pieceMaterial.HasProperty("_Color")) pieceMaterial.color = targetCol;
                 }
             }
         }
@@ -177,6 +206,9 @@ namespace PuzzleSystem.Gameplay
             if (isPlaced) return;
             isPlaced = true;
             isBeingHeld = false;
+            if (pointsTextMesh != null) pointsTextMesh.gameObject.SetActive(false);
+            if (borderLine != null) borderLine.enabled = false;
+            UpdatePointsVisual();
 
             transform.localPosition = correctLocalPos;
             transform.localRotation = correctLocalRot;
@@ -186,6 +218,12 @@ namespace PuzzleSystem.Gameplay
                 rb.isKinematic = true;
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
+            }
+
+            var localPlayer = FindFirstObjectByType<PlayerController.PlayerController>();
+            if (localPlayer != null)
+            {
+                localPlayer.GetComponent<PuzzleOnline.Gameplay.Competitive.PlayerAuraVisual>()?.SetAura(false);
             }
 
             OnPiecePlaced?.Invoke(this);
@@ -198,6 +236,16 @@ namespace PuzzleSystem.Gameplay
             if (rb != null)
             {
                 rb.isKinematic = held;
+            }
+
+            var localPlayer = FindFirstObjectByType<PlayerController.PlayerController>();
+            if (localPlayer != null)
+            {
+                var aura = localPlayer.GetComponent<PuzzleOnline.Gameplay.Competitive.PlayerAuraVisual>();
+                if (aura != null)
+                {
+                    aura.SetAura(held, points);
+                }
             }
         }
 
@@ -214,6 +262,126 @@ namespace PuzzleSystem.Gameplay
             {
                 rb.isKinematic = true;
             }
+            UpdatePointsVisual();
+        }
+
+        public void SetPoints(int pts)
+        {
+            points = pts;
+            UpdatePointsVisual();
+        }
+
+        private void EnsureBorderLine()
+        {
+            if (borderLine != null) return;
+
+            var mesh = GetComponent<MeshFilter>()?.sharedMesh;
+            if (mesh == null) return;
+
+            var verts = mesh.vertices;
+            var norms = mesh.normals;
+            int topCount = 0;
+            while (topCount < verts.Length && norms[topCount].y > 0.9f)
+            {
+                topCount++;
+            }
+
+            if (topCount < 3) return;
+
+            var borderObj = new GameObject("RarityBorder");
+            borderObj.transform.SetParent(transform, false);
+            borderLine = borderObj.AddComponent<LineRenderer>();
+            borderLine.useWorldSpace = false;
+            borderLine.loop = true;
+            borderLine.startWidth = 0.0025f;
+            borderLine.endWidth = 0.0025f;
+            borderLine.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            borderLine.receiveShadows = false;
+
+            Shader s = Shader.Find("Universal Render Pipeline/Unlit") 
+                    ?? Shader.Find("Sprites/Default") 
+                    ?? Shader.Find("Unlit/Color");
+            borderLineMaterial = new Material(s);
+            borderLine.material = borderLineMaterial;
+
+            borderLine.positionCount = topCount;
+            for (int i = 0; i < topCount; i++)
+            {
+                Vector3 v = verts[i];
+                v.y += 0.0006f; // Nhô lên 0.6mm so với mặt tranh để hiển thị sắc nét không bị z-fighting
+                borderLine.SetPosition(i, v);
+            }
+        }
+
+        public void UpdatePointsVisual()
+        {
+            if (pointsTextMesh != null)
+            {
+                pointsTextMesh.gameObject.SetActive(false);
+            }
+
+            var net = PuzzleOnline.Network.PuzzleNetworkManager.Instance;
+            bool isBattle = net != null ? net.IsBattleMode : true;
+            bool showBorder = isBattle && !isPlaced;
+
+            if (showBorder)
+            {
+                EnsureBorderLine();
+                Color rarityColor = PieceRarity.GetColor(points);
+                if (isObscuredByInk)
+                {
+                    rarityColor = new Color(0.12f, 0.12f, 0.12f, 1f);
+                }
+
+                if (borderLine != null)
+                {
+                    borderLine.startColor = rarityColor;
+                    borderLine.endColor = rarityColor;
+                    if (borderLineMaterial != null)
+                    {
+                        borderLineMaterial.color = rarityColor;
+                        if (borderLineMaterial.HasProperty("_BaseColor")) borderLineMaterial.SetColor("_BaseColor", rarityColor);
+                    }
+                    borderLine.enabled = true;
+                }
+
+                // Tô màu cạnh bên 3D của mảnh ghép
+                if (meshRenderer != null && meshRenderer.materials.Length > 1)
+                {
+                    var sideMat = meshRenderer.materials[1];
+                    if (sideMat != null)
+                    {
+                        sideMat.color = rarityColor;
+                        if (sideMat.HasProperty("_BaseColor")) sideMat.SetColor("_BaseColor", rarityColor);
+                    }
+                }
+            }
+            else
+            {
+                if (borderLine != null)
+                {
+                    borderLine.enabled = false;
+                }
+
+                if (meshRenderer != null && meshRenderer.materials.Length > 1)
+                {
+                    var sideMat = meshRenderer.materials[1];
+                    if (sideMat != null)
+                    {
+                        Color cardboard = new Color(0.82f, 0.74f, 0.62f);
+                        sideMat.color = cardboard;
+                        if (sideMat.HasProperty("_BaseColor")) sideMat.SetColor("_BaseColor", cardboard);
+                    }
+                }
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (borderLineMaterial != null)
+            {
+                Destroy(borderLineMaterial);
+            }
         }
 
         private Coroutine inkCoroutine;
@@ -225,6 +393,8 @@ namespace PuzzleSystem.Gameplay
 
         private System.Collections.IEnumerator InkRoutine(float duration)
         {
+            isObscuredByInk = true;
+            UpdatePointsVisual();
             if (meshRenderer != null && meshRenderer.material != null)
             {
                 if (meshRenderer.material.HasProperty("_BaseColor"))
@@ -233,6 +403,8 @@ namespace PuzzleSystem.Gameplay
                     meshRenderer.material.color = new Color(0.08f, 0.08f, 0.08f, 1f);
             }
             yield return new WaitForSeconds(duration);
+            isObscuredByInk = false;
+            UpdatePointsVisual();
             if (meshRenderer != null && meshRenderer.material != null)
             {
                 if (meshRenderer.material.HasProperty("_BaseColor"))

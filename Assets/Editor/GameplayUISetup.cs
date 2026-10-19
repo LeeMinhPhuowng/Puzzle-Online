@@ -16,11 +16,20 @@ using PuzzleOnline.UI;
 public static class GameplayUISetup
 {
     private const string HudPath = "Assets/Resources/UI/GameplayHUD.prefab";
-    private static readonly Color Card = new Color(.13f, .15f, .20f, .95f);
-    private static readonly Color Ink = new Color(.94f, .95f, .97f);
+    private static readonly Color Card = new Color(1f, 1f, 1f, .95f);
+    private static readonly Color Ink = Color.white;
     private static readonly Color Blue = new Color(.22f, .62f, .95f);
     private static TMP_FontAsset font;
     private static TMP_SpriteAsset sprites;
+    private static Sprite cardSprite;
+    private static Sprite inputSprite;
+    private static Sprite buttonGoldSprite;
+    private static Sprite buttonDarkSprite;
+    private static Sprite progressFillSprite;
+    private static Sprite greenRoleSprite;
+    private static Sprite redRoleSprite;
+    private static Sprite solverTitleSprite;
+    private static Sprite saboteurTitleSprite;
 
     [MenuItem("Tools/Puzzle Online/Apply Canvas Gameplay UI")]
     public static void Apply()
@@ -97,6 +106,15 @@ public static class GameplayUISetup
             AssetDatabase.CreateAsset(font, body);
         }
         sprites = AssetDatabase.LoadAssetAtPath<TMP_SpriteAsset>("Assets/TextMesh Pro/Resources/Sprite Assets/EmojiOne.asset");
+        cardSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/GeneratedImgs/Card_Room_Background.png");
+        inputSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/GeneratedImgs/InputField_Royal.png");
+        buttonGoldSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/GeneratedImgs/Button_Royal_Gold.png");
+        buttonDarkSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/GeneratedImgs/Button_Royal_Dark.png");
+        progressFillSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/GeneratedImgs/ProgressBar_Fill_Gold.png");
+        greenRoleSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/green.png");
+        redRoleSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/red.png");
+        solverTitleSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Pixel-Art_Solver_Logo-removebg-preview.png");
+        saboteurTitleSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Pixel-Art_SABOTEUR_Logo-removebg-preview.png");
     }
 
     private static RectTransform Rect(string name, Transform parent, Vector2 min, Vector2 max, Vector2 pos, Vector2 size, Vector2 pivot)
@@ -112,7 +130,11 @@ public static class GameplayUISetup
     private static RectTransform Box(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size, Vector2 pivot)
     {
         var rect = Rect(name, parent, anchor, anchor, pos, size, pivot);
-        var image = rect.gameObject.AddComponent<Image>(); image.color = Card; image.raycastTarget = false;
+        var image = rect.gameObject.AddComponent<Image>();
+        image.sprite = cardSprite;
+        image.type = cardSprite != null ? Image.Type.Sliced : Image.Type.Simple;
+        image.color = Card;
+        image.raycastTarget = false;
         return rect;
     }
 
@@ -132,13 +154,18 @@ public static class GameplayUISetup
         return label;
     }
 
-    private static Button Button(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size, string value)
+    private static Button Button(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size, string value, bool isDark = false)
     {
         var rect = Rect(name, parent, anchor, anchor, pos, size, new Vector2(.5f, .5f));
-        var image = rect.gameObject.AddComponent<Image>(); image.color = Blue;
+        var image = rect.gameObject.AddComponent<Image>();
+        var sprite = isDark ? buttonDarkSprite : buttonGoldSprite;
+        image.sprite = sprite;
+        image.type = sprite != null ? Image.Type.Sliced : Image.Type.Simple;
+        image.color = Color.white;
         var button = rect.gameObject.AddComponent<Button>(); button.targetGraphic = image;
         var label = Text("Label", rect, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-8, -4), value, 21);
         label.alignment = TextAlignmentOptions.Center;
+        label.color = isDark ? Color.white : Color.black;
         return button;
     }
 
@@ -166,16 +193,18 @@ public static class GameplayUISetup
         Ref(data, "puzzleName", Text("PuzzleName", top, Vector2.zero, new Vector2(.28f, .52f), Vector2.zero, new Vector2(-30, -6), "Bộ tranh: Hoàng Hôn"));
         Ref(data, "themeName", Text("ThemeName", top, new Vector2(.29f, .52f), new Vector2(.69f, 1), Vector2.zero, new Vector2(-20, -6), "Không gian: Thiên nhiên xanh mát"));
         var progress = Rect("ProgressBar", top, new Vector2(.29f, .1f), new Vector2(.69f, .43f), Vector2.zero, Vector2.zero, Vector2.one * .5f);
-        progress.gameObject.AddComponent<Image>().color = new Color(.08f, .09f, .12f);
-        progress.GetComponent<Image>().raycastTarget = false;
+        var progImg = progress.gameObject.AddComponent<Image>();
+        progImg.sprite = inputSprite; progImg.type = inputSprite != null ? Image.Type.Sliced : Image.Type.Simple;
+        progImg.color = new Color(.95f, .95f, .95f, 1f); progImg.raycastTarget = false;
         var fillRect = Rect("Fill", progress, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, Vector2.one * .5f);
-        var fill = fillRect.gameObject.AddComponent<Image>(); fill.color = Blue; fill.raycastTarget = false;
-        fill.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd"); fill.type = Image.Type.Filled; fill.fillMethod = Image.FillMethod.Horizontal; fill.fillAmount = .45f;
+        var fill = fillRect.gameObject.AddComponent<Image>(); fill.color = Color.white; fill.raycastTarget = false;
+        fill.sprite = progressFillSprite != null ? progressFillSprite : AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+        fill.type = Image.Type.Filled; fill.fillMethod = Image.FillMethod.Horizontal; fill.fillAmount = .45f;
         Ref(data, "progressFill", fill);
         var progressText = Text("Progress", progress, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, "4/9 mảnh (44%)", 21);
-        progressText.alignment = TextAlignmentOptions.Center; Ref(data, "progress", progressText);
+        progressText.alignment = TextAlignmentOptions.Center; progressText.color = Color.white; Ref(data, "progress", progressText);
         var timer = Text("Timer", top, new Vector2(.72f, .1f), new Vector2(.85f, .9f), Vector2.zero, Vector2.zero, "04:30", 30);
-        timer.alignment = TextAlignmentOptions.Center; Ref(data, "timer", timer);
+        timer.alignment = TextAlignmentOptions.Center; timer.color = Color.white; Ref(data, "timer", timer);
         Ref(data, "menuButton", Button("MenuButton", top, new Vector2(.93f, .5f), Vector2.zero, new Vector2(170, 48), "Menu [Esc]"));
         var board = Box("RankingPanel", area, Vector2.up, new Vector2(24, -152), new Vector2(330, 210), Vector2.up);
         Label("Title", board, 16, 12, 298, 30, "BẢNG XẾP HẠNG", 24);
@@ -186,23 +215,46 @@ public static class GameplayUISetup
         var mic = Box("MicrophonePanel", area, Vector2.up, new Vector2(24, -624), new Vector2(330, 100), Vector2.up);
         Ref(data, "microphone", Label("Status", mic, 12, 8, 306, 36, "Micro: Sẵn sàng [V]", 21));
         Ref(data, "microphoneButton", Button("MuteButton", mic, new Vector2(.5f, 0), new Vector2(0, 28), new Vector2(286, 36), "Bật / Tắt tiếng"));
-        var role = Box("RoleAnnouncement", area, new Vector2(.5f, 1), new Vector2(0, -156), new Vector2(650, 110), new Vector2(.5f, 1));
-        var roleText = Label("Role", role, 16, 10, 618, 90, "ĐỘI XÂY DỰNG\nHợp tác ghép tranh trước khi hết giờ!", 25);
-        roleText.alignment = TextAlignmentOptions.Center; Ref(data, "rolePanel", role.gameObject); Ref(data, "roleText", roleText);
-        var item = Box("ItemGuide", area, new Vector2(.5f, 0), new Vector2(0, 150), new Vector2(630, 190), new Vector2(.5f, 0));
+        var role = Rect("RoleAnnouncement", area, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -156), new Vector2(900, 300), new Vector2(.5f, 1));
+        var roleImg = role.gameObject.AddComponent<Image>();
+        roleImg.sprite = greenRoleSprite;
+        roleImg.type = Image.Type.Simple;
+        roleImg.color = Color.white;
+        roleImg.raycastTarget = false;
+        var team = Rect("Team", role, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(-20, 15), new Vector2(520, 173), new Vector2(.5f, .5f));
+        var teamImg = team.gameObject.AddComponent<Image>();
+        teamImg.sprite = solverTitleSprite;
+        teamImg.preserveAspect = true;
+        var roleText = Label("Role", role, 0, 80, 900, 140, "ĐỘI LẮP GHÉP\nHợp tác ghép tranh trước khi hết giờ!", 28);
+        roleText.alignment = TextAlignmentOptions.Center;
+        roleText.color = Color.white;
+        roleText.fontStyle = FontStyles.Bold;
+        Ref(data, "rolePanel", role.gameObject);
+        Ref(data, "roleText", roleText);
+        Ref(data, "roleBackground", roleImg);
+        Ref(data, "roleTitleImage", teamImg);
+        Ref(data, "builderRoleSprite", greenRoleSprite);
+        Ref(data, "saboteurRoleSprite", redRoleSprite);
+        Ref(data, "solverTitleSprite", solverTitleSprite);
+        Ref(data, "saboteurTitleSprite", saboteurTitleSprite);
+        var item = Box("ItemGuide", area, new Vector2(.5f, 0), new Vector2(0, 140), new Vector2(650, 48), new Vector2(.5f, 0));
         Ref(data, "itemPanel", item.gameObject);
-        Ref(data, "itemText", Label("Instruction", item, 14, 10, 602, 66, "ĐÈN PIN: Nhấp chuột trái vào người chơi để rọi mù màn hình.", 22));
-        Ref(data, "targetText", Label("Target", item, 14, 78, 602, 30, "Nhắm vào mục tiêu hợp lệ", 21));
-        Ref(data, "pickupText", Label("Pickup", item, 14, 112, 602, 30, "Nhấn [E] để mở Hộp Quà", 21));
+        var itemLabel = Label("Instruction", item, 14, 4, 622, 40, "ĐÈN PIN: Nhấp chuột trái vào người chơi để rọi mù màn hình.", 20);
+        itemLabel.alignment = TextAlignmentOptions.Center;
+        itemLabel.color = Color.white;
+        Ref(data, "itemText", itemLabel);
+        var targetLabel = Label("Target", item, 0, 0, 10, 10, "", 1); targetLabel.gameObject.SetActive(false); Ref(data, "targetText", targetLabel);
+        var pickupLabel = Label("Pickup", item, 0, 0, 10, 10, "", 1); pickupLabel.gameObject.SetActive(false); Ref(data, "pickupText", pickupLabel);
         var targets = new Button[3]; var names = new TMP_Text[3];
         for (int i = 0; i < 3; i++)
         {
-            targets[i] = Button("Target" + i, item, new Vector2(0, 0), new Vector2(109 + i * 206, 24), new Vector2(194, 36), "Player " + (i + 1));
+            targets[i] = Button("Target" + i, item, Vector2.zero, Vector2.zero, Vector2.one, "P" + i);
+            targets[i].gameObject.SetActive(false);
             names[i] = targets[i].GetComponentInChildren<TMP_Text>();
         }
         Refs(data, "targetButtons", targets); Refs(data, "targetNames", names);
-        var dot = Box("Reticle", area, Vector2.one * .5f, Vector2.zero, new Vector2(6, 6), Vector2.one * .5f);
-        dot.GetComponent<Image>().color = Color.white; Ref(data, "reticle", dot.gameObject);
+        var dot = Rect("Reticle", area, Vector2.one * .5f, Vector2.one * .5f, Vector2.zero, new Vector2(6, 6), Vector2.one * .5f);
+        dot.gameObject.AddComponent<Image>().color = Color.white; Ref(data, "reticle", dot.gameObject);
         BuildChat(area, data);
         data.ApplyModifiedPropertiesWithoutUndo();
         PrefabUtility.SaveAsPrefabAsset(root, HudPath);
@@ -226,18 +278,26 @@ public static class GameplayUISetup
         var fit = text.gameObject.AddComponent<ContentSizeFitter>(); fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
         scroll.content = text.rectTransform; Ref(data, "chatScroll", scroll); Ref(data, "chatMessages", text);
         var inputRect = Rect("ChatInput", chat, Vector2.zero, Vector2.zero, new Vector2(220, 36), new Vector2(408, 42), Vector2.one * .5f);
-        inputRect.gameObject.AddComponent<Image>().color = new Color(.08f, .09f, .12f);
+        var inputImg = inputRect.gameObject.AddComponent<Image>();
+        inputImg.sprite = inputSprite;
+        inputImg.type = inputSprite != null ? Image.Type.Sliced : Image.Type.Simple;
+        inputImg.color = Color.white;
         var input = inputRect.gameObject.AddComponent<TMP_InputField>();
         var inputViewport = Rect("Viewport", inputRect, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-16, -4), Vector2.one * .5f);
         inputViewport.gameObject.AddComponent<RectMask2D>(); input.textViewport = inputViewport;
         var inputText = Text("Text", inputViewport, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, "", 22);
         var placeholder = Text("Placeholder", inputViewport, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, "Nhập tin nhắn...", 22);
-        placeholder.color = new Color(.58f, .62f, .70f);
+        placeholder.color = new Color(.8f, .8f, .85f, .7f);
         input.textComponent = (TextMeshProUGUI)inputText; input.placeholder = placeholder;
         input.lineType = TMP_InputField.LineType.SingleLine; input.fontAsset = font; input.richText = false;
         Ref(data, "chatInput", input); Ref(data, "sendButton", Button("Send", chat, Vector2.zero, new Vector2(468, 36), new Vector2(72, 42), "Gửi"));
         string[] emojis = { "😊", "👍", "🎉", "🔥", "❤️", "👏" }; var buttons = new Button[6];
-        for (int i = 0; i < emojis.Length; i++) buttons[i] = Button("Emoji" + i, chat, Vector2.zero, new Vector2(55 + i * 82, 86), new Vector2(72, 36), emojis[i]);
+        for (int i = 0; i < emojis.Length; i++)
+        {
+            buttons[i] = Button("Emoji" + i, chat, Vector2.zero, new Vector2(55 + i * 82, 86), new Vector2(72, 36), emojis[i]);
+            var emojiLabel = buttons[i].GetComponentInChildren<TMP_Text>();
+            if (emojiLabel != null) emojiLabel.color = Color.white;
+        }
         Refs(data, "emojiButtons", buttons); Ref(data, "emojiSprites", sprites);
         Ref(data, "chatToggle", Button("ChatToggle", parent, Vector2.right, new Vector2(-114, 50), new Vector2(180, 48), "Chat [T]"));
     }

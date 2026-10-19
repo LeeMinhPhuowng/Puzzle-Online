@@ -175,6 +175,8 @@ namespace PuzzleOnline.UI
                             ?? Resources.Load<GameObject>("Prefabs/Player");
             }
 
+            int stageLayer = GetStageLayer();
+
             // 1. Tạo Root cho 3D Stage ở vị trí biệt lập
             _stageRoot = new GameObject("[LobbyRoom3D_Stage]");
             _stageRoot.transform.position = stagePosition;
@@ -191,7 +193,7 @@ namespace PuzzleOnline.UI
             _roomCamera.fieldOfView = 48f;
             _roomCamera.nearClipPlane = 0.3f;
             _roomCamera.farClipPlane = 50f;
-            _roomCamera.cullingMask = -1; // Render toàn bộ layer của stage
+            _roomCamera.cullingMask = 1 << stageLayer; // Chỉ render layer của stage, loại trừ mọi nguồn sáng/vật thể khác
 
             // 3. Tạo RenderTexture gán cho Camera và RawImage
             _renderTexture = new RenderTexture(1024, 1024, 24, RenderTextureFormat.ARGB32);
@@ -206,7 +208,7 @@ namespace PuzzleOnline.UI
             }
             ResizePreviewTexture();
 
-            // 4. Ánh sáng vàng kim hoàng gia & Ambient Light
+            // 4. Ánh sáng vàng kim hoàng gia & Ambient Light (chỉ chiếu sáng stageLayer)
             var lightGo = new GameObject("StageLight");
             lightGo.transform.SetParent(_stageRoot.transform, false);
             lightGo.transform.localPosition = new Vector3(2f, 6f, -3f);
@@ -215,7 +217,8 @@ namespace PuzzleOnline.UI
             var dirLight = lightGo.AddComponent<Light>();
             dirLight.type = LightType.Directional;
             dirLight.color = new Color(1f, 0.94f, 0.82f);
-            dirLight.intensity = 1.35f;
+            dirLight.intensity = 1.15f;
+            dirLight.cullingMask = 1 << stageLayer; // Chỉ chiếu sáng 4 mảnh ghép và avatar
 
             var fillLightGo = new GameObject("FillLight");
             fillLightGo.transform.SetParent(_stageRoot.transform, false);
@@ -224,7 +227,8 @@ namespace PuzzleOnline.UI
             fillLight.type = LightType.Point;
             fillLight.color = new Color(0.35f, 0.55f, 0.95f);
             fillLight.range = 15f;
-            fillLight.intensity = 2f;
+            fillLight.intensity = 1.2f;
+            fillLight.cullingMask = 1 << stageLayer;
 
             // 5. Tạo 4 Mảnh Ghép Lơ Lửng (2x2)
             Vector3[] slotPositions = new Vector3[]
@@ -238,6 +242,41 @@ namespace PuzzleOnline.UI
             for (int i = 0; i < 4; i++)
             {
                 CreatePieceSlot(i, slotPositions[i]);
+            }
+
+            SetLayerRecursively(_stageRoot, stageLayer);
+
+            // Cô lập stage khỏi các đèn Directional Light bên ngoài scene
+            var allLights = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+            foreach (var l in allLights)
+            {
+                if (l != null && l != dirLight && l != fillLight && l.type == LightType.Directional)
+                {
+                    l.cullingMask &= ~(1 << stageLayer);
+                }
+            }
+        }
+
+        private const string StageLayerName = "LobbyStage";
+        private int _stageLayer = -1;
+
+        private int GetStageLayer()
+        {
+            if (_stageLayer < 0)
+            {
+                _stageLayer = LayerMask.NameToLayer(StageLayerName);
+                if (_stageLayer < 0) _stageLayer = 11;
+            }
+            return _stageLayer;
+        }
+
+        public static void SetLayerRecursively(GameObject obj, int layer)
+        {
+            if (obj == null) return;
+            obj.layer = layer;
+            foreach (Transform child in obj.transform)
+            {
+                if (child != null) SetLayerRecursively(child.gameObject, layer);
             }
         }
 
@@ -644,6 +683,7 @@ namespace PuzzleOnline.UI
                 }
             }
 
+            SetLayerRecursively(avatar, GetStageLayer());
             return avatar;
         }
     }

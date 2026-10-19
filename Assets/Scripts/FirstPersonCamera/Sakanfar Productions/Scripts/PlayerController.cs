@@ -59,6 +59,11 @@ namespace PlayerController
             // Get required components
             controller = GetComponent<CharacterController>();
 
+            if (GetComponent<PuzzleOnline.Gameplay.Competitive.PlayerAuraVisual>() == null)
+            {
+                gameObject.AddComponent<PuzzleOnline.Gameplay.Competitive.PlayerAuraVisual>();
+            }
+
             int groundLayer = LayerMask.NameToLayer("Ground");
             groundMask = groundLayer >= 0 ? 1 << groundLayer : 0;
 
@@ -147,6 +152,11 @@ namespace PlayerController
             // Apply movement to character controller
             controller.Move(velocity * Time.deltaTime);
 
+            if (PuzzleOnline.Core.SceneConfig.Instance != null)
+            {
+                transform.position = PuzzleOnline.Core.SceneConfig.Instance.ClampPlayerPosition(transform.position);
+            }
+
             if (velocity.sqrMagnitude > 0.01f)
             {
                 var cam = GetComponentInChildren<FirstPersonCamera.FirstPersonCameraScript>();
@@ -154,6 +164,15 @@ namespace PlayerController
                 float pitch = cam != null ? cam.XRotation : 0f;
                 PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendLook(yaw, pitch, transform.position);
             }
+        }
+
+        /// <summary>
+        /// Bị tát bằng Găng Tay (Slap Glove): Hất tung người chơi lên trời theo phương thẳng đứng (trục Y).
+        /// </summary>
+        public void LaunchUpward(float verticalForce)
+        {
+            velocity.y = verticalForce;
+            isGrounded = false;
         }
 
         private void HandleGroundCheck()

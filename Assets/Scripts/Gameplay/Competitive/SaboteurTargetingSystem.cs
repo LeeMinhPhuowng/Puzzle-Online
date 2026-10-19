@@ -9,9 +9,30 @@ namespace PuzzleOnline.Gameplay.Competitive
     public class SaboteurTargetingSystem : MonoBehaviour
     {
         public static SaboteurTargetingSystem Instance { get; private set; }
-        public string TargetHint => hoveredPlacedPiece != null ? $"[CLICK] Cạy mảnh #{hoveredPlacedPiece.pieceId + 1}"
-            : isHoveringTable ? "[CLICK] Vẩy mực lên bàn"
-            : !string.IsNullOrEmpty(hoveredTargetPlayer) ? "[CLICK] Tác động lên: " + hoveredTargetPlayer : "Nhắm vào mục tiêu hợp lệ";
+        public string TargetHint
+        {
+            get
+            {
+                var inventory = SaboteurInventoryHUD.Instance;
+                string item = inventory != null ? inventory.GetSelectedItemType() : "";
+                if (hoveredPlacedPiece != null)
+                {
+                    return item == "MAGNET"
+                        ? $"[CLICK] Hút mảnh ghép #{hoveredPlacedPiece.pieceId + 1} (cố định 5s)"
+                        : $"[CLICK] Cạy mảnh #{hoveredPlacedPiece.pieceId + 1}";
+                }
+                if (isHoveringTable) return "[CLICK] Bôi đen và giấu điểm mảnh ghép trên bàn";
+                if (!string.IsNullOrEmpty(hoveredTargetPlayer))
+                {
+                    if (item == "SLAP") return $"[CLICK] Tát bay {hoveredTargetPlayer} lên trời!";
+                    if (item == "MAGNET") return $"[CLICK] Hút giật mảnh từ {hoveredTargetPlayer} (cố định 5s)";
+                    if (item == "FLASHLIGHT") return $"[CLICK] Chiếu đèn rọi mù: {hoveredTargetPlayer}";
+                    return "[CLICK] Tác động lên: " + hoveredTargetPlayer;
+                }
+                return "Nhắm vào mục tiêu hợp lệ";
+            }
+        }
+
         public bool CanQuickTarget(string username)
         {
             playerCamera = Camera.main;
@@ -40,13 +61,23 @@ namespace PuzzleOnline.Gameplay.Competitive
             isHoveringTable = false;
             var net = PuzzleNetworkManager.Instance;
             var inventory = SaboteurInventoryHUD.Instance;
-            if (net == null || !net.IsGameActive || !net.IsSaboteur || net.GameplaySyncService.HasRoundEnded ||
+            if (net == null || !net.IsGameActive || (!net.IsSaboteur && !net.IsBattleMode) || net.GameplaySyncService.HasRoundEnded ||
                 inventory == null || inventory.IsUsePending || InteractionTargetQuery.IsBlocked)
             { selection.Set(null); return; }
             playerCamera = Camera.main;
             string item = inventory.GetSelectedItemType();
 
-            if (string.IsNullOrEmpty(item) || !InteractionTargetQuery.TryHit(playerCamera, 25f, out var hit))
+            float maxRange = item switch
+            {
+                "SLAP" => ItemConfig.GloveRange,
+                "MAGNET" => ItemConfig.MagnetRange,
+                "FLASHLIGHT" => ItemConfig.FlashlightRange,
+                "SHOVEL" => ItemConfig.CrowbarRange,
+                "INK" => ItemConfig.InkRange,
+                _ => 25f
+            };
+
+            if (string.IsNullOrEmpty(item) || !InteractionTargetQuery.TryHit(playerCamera, maxRange, out var hit))
             { selection.Set(null); return; }
 
             GameObject outlinedTarget = null;
@@ -61,7 +92,26 @@ namespace PuzzleOnline.Gameplay.Competitive
                 isHoveringTable = hit.collider.GetComponentInParent<PuzzleBoard>() != null ||
                     hit.collider.name.IndexOf("table", StringComparison.OrdinalIgnoreCase) >= 0;
             }
-            else if (item == "FLASHLIGHT" || item == "SLAP" || item == "MAGNET")
+            else if (item == "MAGNET")
+            {
+                // Nam châm có thể nhắm vào mảnh ghép trên bàn HOẶC người chơi khác!
+                var piece = hit.collider.GetComponentInParent<PuzzlePiece>();
+                if (piece != null && !piece.isPlaced)
+                {
+                    hoveredPlacedPiece = piece;
+                    outlinedTarget = piece.gameObject;
+                }
+                else
+                {
+                    var avatar = hit.collider.GetComponentInParent<RemotePlayerAvatar>();
+                    if (avatar != null && IsValidPlayer(avatar.username))
+                    {
+                        hoveredTargetPlayer = avatar.username;
+                        outlinedTarget = avatar.gameObject;
+                    }
+                }
+            }
+            else if (item == "FLASHLIGHT" || item == "SLAP")
             {
                 var avatar = hit.collider.GetComponentInParent<RemotePlayerAvatar>();
                 if (avatar != null && IsValidPlayer(avatar.username))
@@ -81,7 +131,9 @@ namespace PuzzleOnline.Gameplay.Competitive
             var net = PuzzleNetworkManager.Instance;
             if (net == null || string.Equals(net.Username, username, StringComparison.OrdinalIgnoreCase)) return false;
             var player = net.RoomPlayers?.Find(p => string.Equals(p.Username, username, StringComparison.OrdinalIgnoreCase));
-            return player != null && player.Connected && string.Equals(player.Team, "BUILDER", StringComparison.OrdinalIgnoreCase);
+            if (player == null || !player.Connected) return false;
+            if (net.IsBattleMode) return true; // Chế độ tranh đấu: có thể tác động lên bất kỳ đối thủ nào
+            return string.Equals(player.Team, "BUILDER", StringComparison.OrdinalIgnoreCase);
         }
 
 

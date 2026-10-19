@@ -17492,6 +17492,7 @@ MonoBehaviour:
   inactiveDarkSprite: {fileID: 21300000, guid: 2afe452021794014a0cb166978e7ed9b, type: 3}
   peacefulButton: {fileID: 0}
   mayhemButton: {fileID: 0}
+  battleButton: {fileID: 0}
 --- !u!1 &1746426253
 GameObject:
   m_ObjectHideFlags: 0

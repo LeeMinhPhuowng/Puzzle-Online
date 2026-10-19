@@ -116,12 +116,15 @@ namespace PuzzleOnline.UI
 
             net.OnError += msg =>
             {
-                ShowToast(msg);
+                string curScene = SceneManager.GetActiveScene().name;
+                if (curScene != "SCN_Menu" && curScene != "SCN_MainMenu")
+                {
+                    ShowToast(msg);
+                }
                 _inGameView.SetReconnectPrompt(null);
                 if (PuzzleNetworkManager.Instance == null || !PuzzleNetworkManager.Instance.IsGameActive)
                 {
                     CursorManager.Unlock();
-                    string curScene = SceneManager.GetActiveScene().name;
                     // Nếu đang ở scene menu hoặc SCN_Room thì tuyệt đối không chuyển cảnh
                     if (curScene != "SCN_Menu" && curScene != "SCN_MainMenu" && curScene != "SCN_Room" && curScene != "SCN_Lobby")
                     {
@@ -259,10 +262,15 @@ namespace PuzzleOnline.UI
             bool isEnvironmentScene = curScene.StartsWith("SCN_Nature") || curScene.StartsWith("SCN_Classroom") ||
                                      curScene.StartsWith("SCN_Sakura") || curScene.Equals("Test", StringComparison.OrdinalIgnoreCase);
 
-            if (curScene == "SCN_Menu" || curScene == "SCN_Lobby" || curScene == "SCN_Room" || curScene == "SCN_MainMenu")
+            if (curScene == "SCN_Menu" || curScene == "SCN_MainMenu")
             {
-                // Cả SCN_Menu, SCN_Lobby và SCN_Room đều có hệ thống UI Canvas riêng chính thức
-                // Tuyệt đối không vẽ đè giao diện IMGUI cũ
+                // MainMenu có UI Canvas riêng (MainMenuUIController) với statusText, không vẽ bất kỳ IMGUI nào
+                return;
+            }
+
+            if (curScene == "SCN_Lobby" || curScene == "SCN_Room")
+            {
+                // Cả SCN_Lobby và SCN_Room đều có hệ thống UI Canvas riêng chính thức
                 DrawToast();
                 return;
             }

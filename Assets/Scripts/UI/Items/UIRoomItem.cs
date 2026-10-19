@@ -118,7 +118,8 @@ namespace PuzzleOnline.UI
             if (joinButton != null)
             {
                 bool isComplete = "COMPLETE".Equals(room.State, StringComparison.OrdinalIgnoreCase);
-                bool canJoin = !isFull && (room.GameMode != "COMPETITIVE" || (isWaiting && !isComplete));
+                bool isRestrictedMode = room.GameMode == "COMPETITIVE" || room.GameMode == "BATTLE";
+                bool canJoin = !isFull && (!isRestrictedMode || (isWaiting && !isComplete));
                 joinButton.interactable = canJoin;
                 joinButton.onClick.RemoveAllListeners();
                 joinButton.onClick.AddListener(() =>

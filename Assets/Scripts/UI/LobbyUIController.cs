@@ -175,7 +175,15 @@ namespace PuzzleOnline.UI
             string roomId = net?.CurrentRoom?.Id;
             if (roomId != displayedRoomId) friendsOverlayVisible = false;
             displayedRoomId = roomId;
-            if (inviteButton != null) inviteButton.gameObject.SetActive(inRoom);
+            if (inviteButton != null)
+            {
+                inviteButton.gameObject.SetActive(inRoom);
+                var btnTxt = inviteButton.GetComponentInChildren<TextMeshProUGUI>();
+                if (btnTxt != null)
+                {
+                    btnTxt.text = friendsOverlayVisible ? "Đóng" : "Mời bạn";
+                }
+            }
 
             EnsureRoomViews();
 
@@ -185,19 +193,19 @@ namespace PuzzleOnline.UI
 
             // 2. Chuyển đổi giữa Danh sách bạn bè và 2 Khung Preview (Map & Puzzle)
             if (friendsPanel != null) friendsPanel.gameObject.SetActive(!inRoom || friendsOverlayVisible);
-            if (roomPreviewPanel != null) roomPreviewPanel.SetVisible(inRoom);
+
+            // Khi ở trong phòng và nhấn Mời bạn (friendsOverlayVisible == true), ẩn hoàn toàn Puzzle và Environment Preview
+            bool showPreviews = inRoom && !friendsOverlayVisible;
+            if (roomPreviewPanel != null) roomPreviewPanel.SetVisible(showPreviews);
 
             var mapP = FindCanvasChild("Map Preview");
-            if (mapP != null) mapP.gameObject.SetActive(inRoom);
+            if (mapP != null) mapP.gameObject.SetActive(showPreviews);
 
             var puzP = FindCanvasChild("Puzzle Preview");
-            if (puzP != null) puzP.gameObject.SetActive(inRoom);
+            if (puzP != null) puzP.gameObject.SetActive(showPreviews);
             if (inRoom && friendsOverlayVisible && friendsPanel != null)
             {
-                int previewIndex = Mathf.Max(mapP != null ? mapP.GetSiblingIndex() : 0,
-                    puzP != null ? puzP.GetSiblingIndex() : 0);
-                int index = friendsPanel.transform.GetSiblingIndex();
-                friendsPanel.transform.SetSiblingIndex(index <= previewIndex ? previewIndex : previewIndex + 1);
+                friendsPanel.transform.SetAsLastSibling();
             }
 
             // 3. Chuyển đổi Panel Tạo phòng
@@ -376,7 +384,7 @@ namespace PuzzleOnline.UI
                 userStatusText.text = "Trực tuyến";
 
             if (coinsText != null)
-                coinsText.text = $"{net.Coins:N0} Xu";
+                coinsText.text = $"{net.Coins:N0}";
         }
 
         private void ToggleFriendsPanel()
@@ -385,6 +393,14 @@ namespace PuzzleOnline.UI
             {
                 friendsPanel.gameObject.SetActive(!friendsPanel.gameObject.activeSelf);
             }
+        }
+
+        public bool IsFriendsOverlayVisible => friendsOverlayVisible;
+
+        public void SetFriendsOverlayVisible(bool visible)
+        {
+            friendsOverlayVisible = visible;
+            SyncRoomDisplay();
         }
 
         private void ToggleRoomFriends()
