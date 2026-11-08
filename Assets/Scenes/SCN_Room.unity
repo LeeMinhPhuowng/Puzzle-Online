@@ -185,7 +185,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4294439664
   m_fontColor: {r: 0.94, g: 0.95, b: 0.97, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -198,7 +198,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 11400000, guid: c41005c129ba4d66911b75229fd70b45, type: 2}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -2197,7 +2197,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4294439664
   m_fontColor: {r: 0.94, g: 0.95, b: 0.97, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -2210,7 +2210,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 11400000, guid: c41005c129ba4d66911b75229fd70b45, type: 2}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -4556,7 +4556,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -7924,7 +7924,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "Tranh \u0111\u1EA5u"
+  m_text: "H\u1ED7n lo\u1EA1n"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: ee99fbaf1e597d34ebc70c78388174f3, type: 2}
   m_sharedMaterial: {fileID: 1321079888366591766, guid: ee99fbaf1e597d34ebc70c78388174f3, type: 2}
@@ -11429,7 +11429,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4294439664
   m_fontColor: {r: 0.94, g: 0.95, b: 0.97, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -11442,7 +11442,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 11400000, guid: c41005c129ba4d66911b75229fd70b45, type: 2}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -11760,7 +11760,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4294439664
   m_fontColor: {r: 0.94, g: 0.95, b: 0.97, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -11773,7 +11773,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 11400000, guid: c41005c129ba4d66911b75229fd70b45, type: 2}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -12033,7 +12033,7 @@ GameObject:
   - component: {fileID: 1090940732}
   - component: {fileID: 1090940731}
   m_Layer: 5
-  m_Name: Warfield
+  m_Name: Mayhem
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -12635,7 +12635,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4294439664
   m_fontColor: {r: 0.94, g: 0.95, b: 0.97, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -12648,7 +12648,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 11400000, guid: c41005c129ba4d66911b75229fd70b45, type: 2}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -14051,7 +14051,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0.00086481776}
+  m_AnchoredPosition: {x: 0, y: 0.0009796348}
   m_SizeDelta: {x: 0, y: 300}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1339785269 stripped
@@ -14646,7 +14646,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4294439664
   m_fontColor: {r: 0.94, g: 0.95, b: 0.97, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -14659,7 +14659,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 11400000, guid: c41005c129ba4d66911b75229fd70b45, type: 2}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -15020,6 +15020,7 @@ RectTransform:
   - {fileID: 430738797}
   - {fileID: 1096614942}
   - {fileID: 48852911}
+  - {fileID: 1279129498}
   - {fileID: 872111421}
   - {fileID: 1746318920}
   - {fileID: 435231684}
@@ -15028,7 +15029,6 @@ RectTransform:
   - {fileID: 2054825031}
   - {fileID: 954090997}
   - {fileID: 1172281193}
-  - {fileID: 1279129498}
   - {fileID: 368728151}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -23634,7 +23634,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4294439664
   m_fontColor: {r: 0.94, g: 0.95, b: 0.97, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -23647,7 +23647,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 11400000, guid: c41005c129ba4d66911b75229fd70b45, type: 2}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -26294,7 +26294,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1824270703}
   m_Direction: 2
   m_Value: 0
-  m_Size: 0.99999726
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -28297,7 +28297,7 @@ GameObject:
   - component: {fileID: 2037170323}
   - component: {fileID: 2037170322}
   m_Layer: 5
-  m_Name: Mayhem
+  m_Name: Warfield/Teamfight
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -30035,7 +30035,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "H\u1ED7n lo\u1EA1n"
+  m_text: "Tranh \u0111\u1EA5u"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: ee99fbaf1e597d34ebc70c78388174f3, type: 2}
   m_sharedMaterial: {fileID: 1321079888366591766, guid: ee99fbaf1e597d34ebc70c78388174f3, type: 2}

@@ -49,6 +49,8 @@ namespace PuzzleOnline.Network
                     Username = message.Get("username");
                     Coins = message.GetInt("coins", 0);
                     SessionToken = message.Get("token");
+                    if (message.Data.ContainsKey("totalScore")) TotalScore = message.GetInt("totalScore", 0);
+                    if (message.Data.ContainsKey("completed")) UniquePuzzlesCompleted = message.GetInt("completed", 0);
                     OnAuthSuccess?.Invoke();
                     return true;
 

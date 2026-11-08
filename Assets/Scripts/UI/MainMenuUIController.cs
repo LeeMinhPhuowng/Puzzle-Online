@@ -754,7 +754,7 @@ namespace PuzzleOnline.UI
         private void OnSettingsClicked()
         {
             AudioManager.Instance?.PlayClick();
-            PuzzleOnlineUIManager.Instance?.ShowToast("Cài đặt âm thanh và đồ họa sẽ được bổ sung!");
+            LobbySettingsModalUI.ShowModal(transform.root);
         }
 
         private void OnQuitClicked()

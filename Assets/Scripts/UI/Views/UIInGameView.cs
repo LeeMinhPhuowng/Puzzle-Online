@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using PuzzleOnline.Network;
@@ -20,6 +21,9 @@ namespace PuzzleOnline.UI
         private bool _showVictoryModal = false;
         private string _victoryWinner = "";
         private int _victoryBonus = 0;
+        private string _gameOverResult = "";
+        private string _gameOverWinnerTeam = "";
+        private int _gameOverTopScore = 0;
 
         // Timeout Modal
         private bool _showTimeoutModal = false;
@@ -56,6 +60,15 @@ namespace PuzzleOnline.UI
             _showVictoryModal = true;
             _victoryWinner = winner;
             _victoryBonus = bonus;
+        }
+
+        public void SetGameOver(string result, string winnerTeam, string winner, int score)
+        {
+            _showVictoryModal = true;
+            _gameOverResult = result;
+            _gameOverWinnerTeam = winnerTeam;
+            if (!string.IsNullOrEmpty(winner)) _victoryWinner = winner;
+            if (score > 0) _gameOverTopScore = score;
         }
 
         public void SetTimeout(bool show)
@@ -102,124 +115,124 @@ namespace PuzzleOnline.UI
 
         private void DrawInGamePauseMenu(UIStyles styles, PuzzleNetworkManager net)
         {
-            styles.DrawSolidRect(new Rect(0, 0, UIStyles.VirtualWidth, UIStyles.VirtualHeight), new Color(0f, 0f, 0f, 0.65f));
+            styles.DrawSolidRect(new Rect(0, 0, UIStyles.VirtualWidth, UIStyles.VirtualHeight), new Color(0f, 0f, 0f, 0.75f));
 
-            float panelW = 580f;
-            float panelH = 600f;
+            float panelW = 620f;
+            float panelH = 550f;
             Rect panel = new Rect(UIStyles.VirtualWidth * 0.5f - panelW * 0.5f, UIStyles.VirtualHeight * 0.5f - panelH * 0.5f, panelW, panelH);
-            GUI.Box(panel, GUIContent.none, styles.CardStyle);
-            styles.DrawBorder(panel, 1.5f, new Color(0.25f, 0.30f, 0.42f, 0.85f));
 
-            // Header
-            GUI.Label(new Rect(panel.x + 36, panel.y + 22, panel.width - 72, 36), "CÀI ĐẶT & TẠM DỪNG", styles.TitleStyle);
-            GUI.Label(new Rect(panel.x + 36, panel.y + 58, panel.width - 72, 22), "Nhấn Esc hoặc bấm TIẾP TỤC để quay lại bàn cờ", styles.MutedStyle);
+            // Nền đen bóng và viền vàng Gold kim loại sang trọng
+            styles.DrawSolidRect(panel, new Color(0.08f, 0.09f, 0.12f, 0.98f));
+            styles.DrawBorder(panel, 2f, styles.GoldColor);
 
-            // Divider
-            styles.DrawSolidRect(new Rect(panel.x + 36, panel.y + 88, panel.width - 72, 1.5f), new Color(0.20f, 0.24f, 0.32f, 1f));
+            // Header - Tiêu đề vàng gold, phụ đề trắng sáng
+            var oldTitleColor = styles.TitleStyle.normal.textColor;
+            styles.TitleStyle.normal.textColor = styles.GoldColor;
+            GUI.Label(new Rect(panel.x + 36, panel.y + 24, panel.width - 72, 34), "CÀI ĐẶT & TẠM DỪNG", styles.TitleStyle);
+            styles.TitleStyle.normal.textColor = oldTitleColor;
 
-            // Section Audio
-            GUI.Label(new Rect(panel.x + 36, panel.y + 100, panel.width - 72, 28), "CÀI ĐẶT ÂM THANH", styles.HeaderStyle);
+            var oldMutedColor = styles.MutedStyle.normal.textColor;
+            styles.MutedStyle.normal.textColor = new Color(0.85f, 0.88f, 0.92f, 1f);
+            GUI.Label(new Rect(panel.x + 36, panel.y + 58, panel.width - 72, 22), "Nhấn [Esc] hoặc bấm TIẾP TỤC để quay lại bàn chơi", styles.MutedStyle);
+            styles.MutedStyle.normal.textColor = oldMutedColor;
+
+            // Kẻ phân cách Vàng mờ
+            styles.DrawSolidRect(new Rect(panel.x + 36, panel.y + 86, panel.width - 72, 1.5f), new Color(1f, 0.82f, 0.22f, 0.45f));
+
+            // Section 1: CÀI ĐẶT ÂM THANH & MICROPHONE (Khớp với Settings ở SCN_Room)
+            var oldHeaderColor = styles.HeaderStyle.normal.textColor;
+            styles.HeaderStyle.normal.textColor = styles.GoldColor;
+            GUI.Label(new Rect(panel.x + 36, panel.y + 98, panel.width - 72, 26), "CÀI ĐẶT ÂM THANH & MICROPHONE", styles.HeaderStyle);
+            styles.HeaderStyle.normal.textColor = oldHeaderColor;
 
             var audio = AudioManager.Instance;
             float curSFX = audio != null ? audio.SFXVolume : 1f;
             float curVoice = audio != null ? audio.VoiceVolume : 1f;
             float curMusic = audio != null ? audio.MusicVolume : 0.6f;
 
-            // Slider SFX
-            float newSFX = styles.DrawSlider(new Rect(panel.x + 36, panel.y + 138, panel.width - 72, 34), "🔊 Hiệu ứng (SFX)", curSFX);
+            // 1. Slider SFX
+            float newSFX = styles.DrawSlider(new Rect(panel.x + 36, panel.y + 128, panel.width - 72, 32), "Hiệu ứng âm thanh (SFX)", curSFX, "%", styles.GoldColor);
             if (audio != null && Mathf.Abs(newSFX - curSFX) > 0.005f)
             {
                 audio.SetSFXVolume(newSFX);
             }
 
-            // Slider Voice Chat (Friend's voice)
-            float newVoice = styles.DrawSlider(new Rect(panel.x + 36, panel.y + 180, panel.width - 72, 34), "🎙️ Voice Chat (Bạn bè)", curVoice);
+            // 2. Slider Voice Chat
+            float newVoice = styles.DrawSlider(new Rect(panel.x + 36, panel.y + 164, panel.width - 72, 32), "Âm lượng Voice Chat (Bạn bè)", curVoice, "%", styles.GoldColor);
             if (audio != null && Mathf.Abs(newVoice - curVoice) > 0.005f)
             {
                 audio.SetVoiceVolume(newVoice);
             }
 
-            // Slider Music
-            float newMusic = styles.DrawSlider(new Rect(panel.x + 36, panel.y + 222, panel.width - 72, 34), "🎵 Nhạc nền (BGM)", curMusic);
+            // 3. Slider Music
+            float newMusic = styles.DrawSlider(new Rect(panel.x + 36, panel.y + 200, panel.width - 72, 32), "Nhạc nền (BGM)", curMusic, "%", styles.GoldColor);
             if (audio != null && Mathf.Abs(newMusic - curMusic) > 0.005f)
             {
                 audio.SetMusicVolume(newMusic);
             }
 
-            // Slider Mic Gain (Microphone sensitivity / amplification)
+            // 4. Slider Mic Gain
             if (net != null && net.Voice != null)
             {
-                float curGainNorm = (net.Voice.MicGain - 0.5f) / 3.5f;
-                float newGainNorm = styles.DrawSlider(new Rect(panel.x + 36, panel.y + 264, panel.width - 72, 34), "🎤 Khuếch đại Mic (Gain)", curGainNorm);
+                float curGainNorm = Mathf.Clamp01((net.Voice.MicGain - 0.5f) / 3.5f);
+                float newGainNorm = styles.DrawSlider(new Rect(panel.x + 36, panel.y + 236, panel.width - 72, 32), "Khuếch đại Mic (Gain)", curGainNorm, "%", styles.GoldColor);
                 if (Mathf.Abs(newGainNorm - curGainNorm) > 0.005f)
                 {
                     net.Voice.MicGain = 0.5f + newGainNorm * 3.5f;
                 }
             }
 
-            // Voice Chat Quick Mute Toggle Row
-            Rect micRow = new Rect(panel.x + 36, panel.y + 312, panel.width - 72, 42);
-            styles.DrawSolidRect(micRow, new Color(0.11f, 0.13f, 0.18f, 0.85f));
-            styles.DrawBorder(micRow, 1f, new Color(0.22f, 0.26f, 0.35f, 0.7f));
+            // Section 2: ĐIỀU KHIỂN & ĐỒ HỌA
+            styles.HeaderStyle.normal.textColor = styles.GoldColor;
+            GUI.Label(new Rect(panel.x + 36, panel.y + 278, panel.width - 72, 26), "ĐIỀU KHIỂN & ĐỒ HỌA", styles.HeaderStyle);
+            styles.HeaderStyle.normal.textColor = oldHeaderColor;
 
-            bool isMuted = net != null && net.Voice != null && net.Voice.IsMuted;
-            bool micAvailable = net != null && net.Voice != null && net.Voice.IsAvailable;
-            string micStatus;
-            if (!micAvailable)
+            // Slider Mouse Sensitivity
+            float curSens = PlayerPrefs.GetFloat("MouseSensitivity", 2.0f);
+            float curSensNorm = Mathf.Clamp01((curSens - 0.5f) / 3.5f);
+            float newSensNorm = styles.DrawSlider(new Rect(panel.x + 36, panel.y + 308, panel.width - 72, 32), "Độ nhạy chuột (Mouse)", curSensNorm, "%", styles.GoldColor);
+            if (Mathf.Abs(newSensNorm - curSensNorm) > 0.005f)
             {
-                micStatus = "⚠️ Micro: Không tìm thấy thiết bị thu";
-            }
-            else if (isMuted)
-            {
-                micStatus = "🔴 Micro: ĐÃ TẮT TIẾNG (MUTE)";
-            }
-            else if (net.Voice.IsTransmitting)
-            {
-                micStatus = "🟢 Micro: ĐANG PHÁT ÂM [V]";
-            }
-            else
-            {
-                micStatus = "⚪ Micro: SẴN SÀNG [V]";
-            }
-
-            GUI.Label(new Rect(micRow.x + 14, micRow.y + 9, micRow.width - 150, 24), micStatus, styles.BoldStyle);
-
-            if (micAvailable)
-            {
-                string toggleBtnText = isMuted ? "BẬT MIC" : "TẮT MIC";
-                if (styles.DrawButton(new Rect(micRow.xMax - 120, micRow.y + 5, 110, 32), toggleBtnText, !isMuted, false, isMuted, 13))
+                float newSens = 0.5f + newSensNorm * 3.5f;
+                PlayerPrefs.SetFloat("MouseSensitivity", newSens);
+                PlayerPrefs.Save();
+                if (FirstPersonCamera.FirstPersonCameraScript.Instance != null)
                 {
-                    net.Voice.SetMuted(!isMuted);
+                    FirstPersonCamera.FirstPersonCameraScript.Instance.SetMouseSensitivity(newSens, newSens);
                 }
             }
 
-            // Test SFX Button
-            if (styles.DrawButton(new Rect(panel.x + 36, panel.y + 368, 180, 32), "▶ Thử âm thanh SFX", false, false, false, 13))
+            // Row Toàn màn hình (Toàn màn hình: BẬT / TẮT)
+            Rect fsRow = new Rect(panel.x + 36, panel.y + 348, panel.width - 72, 38);
+            styles.DrawSolidRect(fsRow, new Color(0.12f, 0.14f, 0.19f, 0.95f));
+            styles.DrawBorder(fsRow, 1f, new Color(0.25f, 0.28f, 0.36f, 0.7f));
+            string fsLabel = Screen.fullScreen ? "Toàn màn hình: BẬT" : "Cửa sổ: BẬT";
+            if (styles.DrawButton(new Rect(fsRow.x + 10, fsRow.y + 3, 220, 32), fsLabel, false, isGold: Screen.fullScreen, isDanger: false, 13))
             {
-                audio?.PlaySnap();
+                Screen.fullScreen = !Screen.fullScreen;
             }
 
-            // Divider
-            styles.DrawSolidRect(new Rect(panel.x + 36, panel.y + 418, panel.width - 72, 1.5f), new Color(0.20f, 0.24f, 0.32f, 1f));
+            // Divider vàng
+            styles.DrawSolidRect(new Rect(panel.x + 36, panel.y + 406, panel.width - 72, 1.5f), new Color(1f, 0.82f, 0.22f, 0.45f));
 
-            // Buttons: TIẾP TỤC & RỜI PHÒNG
+            // Buttons: TIẾP TỤC (Vàng chữ đen) & RỜI PHÒNG (Đỏ chữ trắng)
             float btnW = (panel.width - 72 - 16) * 0.5f;
-            if (styles.DrawButton(new Rect(panel.x + 36, panel.y + 440, btnW, 48), "TIẾP TỤC", true))
+            if (styles.DrawButton(new Rect(panel.x + 36, panel.y + 428, btnW, 52), "TIẾP TỤC", false, isGold: true, isDanger: false, 18))
             {
                 _showInGameMenu = false;
                 CursorManager.Lock();
             }
 
-            if (styles.DrawButton(new Rect(panel.x + 36 + btnW + 16, panel.y + 440, btnW, 48), "RỜI PHÒNG", false, false, true))
+            if (styles.DrawButton(new Rect(panel.x + 36 + btnW + 16, panel.y + 428, btnW, 52), "RỜI PHÒNG", false, isGold: false, isDanger: true, 18))
             {
-                // Keep the pause menu blocking camera input until ROOM_LEFT is confirmed.
+                AudioManager.Instance?.StopAmbience();
                 net.LeaveRoom();
             }
         }
 
         public void DrawPauseMenu(UIStyles styles)
         {
-            if (_showInGameMenu) DrawInGamePauseMenu(styles, PuzzleNetworkManager.Instance);
+            // Đã chuyển toàn bộ Pause Menu sang Canvas UI SettingsView (LobbySettingsModalUI)
         }
 
 
@@ -237,19 +250,230 @@ namespace PuzzleOnline.UI
         private void DrawVictoryModal(UIStyles styles)
         {
             if (!_showVictoryModal) return;
-            styles.DrawSolidRect(new Rect(0, 0, UIStyles.VirtualWidth, UIStyles.VirtualHeight), new Color(0f, 0f, 0f, 0.75f));
 
-            Rect modal = new Rect(UIStyles.VirtualWidth * 0.5f - 400, UIStyles.VirtualHeight * 0.5f - 240, 800, 480);
-            GUI.Box(modal, GUIContent.none, styles.CardStyle);
+            var net = PuzzleNetworkManager.Instance;
+            styles.DrawSolidRect(new Rect(0, 0, UIStyles.VirtualWidth, UIStyles.VirtualHeight), new Color(0f, 0f, 0f, 0.85f));
 
-            GUI.Label(new Rect(modal.x + 50, modal.y + 50, 700, 60), "🎉 HOÀN THÀNH XUẤT SẮC! 🎉", styles.TitleStyle);
-            GUI.Label(new Rect(modal.x + 50, modal.y + 130, 700, 40), "Bức tranh puzzle đã được ghép trọn vẹn!", styles.HeaderStyle);
-            GUI.Label(new Rect(modal.x + 50, modal.y + 190, 700, 40), $"Người chiến thắng / đóng góp nhiều nhất: {_victoryWinner}", styles.BoldStyle);
-            GUI.Label(new Rect(modal.x + 50, modal.y + 250, 700, 40), $"Thưởng hoàn thành: +{_victoryBonus} xu vào tài khoản!", styles.BoldStyle);
+            float modalW = 860f;
+            float modalH = 600f;
+            Rect modal = new Rect((UIStyles.VirtualWidth - modalW) * 0.5f, (UIStyles.VirtualHeight - modalH) * 0.5f, modalW, modalH);
 
-            if (GUI.Button(new Rect(modal.x + 250, modal.y + 350, 300, 65), "QUAY VỀ SẢNH", styles.PrimaryBtnStyle))
+            // Nền đen chuẩn và viền vàng kim loại sang trọng
+            styles.DrawSolidRect(modal, new Color(0.08f, 0.09f, 0.12f, 0.98f));
+            styles.DrawBorder(modal, 2f, styles.GoldColor);
+
+            bool isComp = net != null && net.IsCompetitive;
+            bool isBattle = net != null && net.IsBattleMode;
+            bool isClassic = !isComp && !isBattle;
+
+            // Xác định kết quả và tiêu đề (Tuyệt đối không dùng emoji)
+            string titleText;
+            string subText;
+            bool buildersWon = _gameOverResult == "BUILDERS_WIN" || (net != null && net.PlacedPieces >= net.TotalPieces && net.TotalPieces > 0);
+
+            if (isComp)
+            {
+                if (buildersWon)
+                {
+                    titleText = "ĐỘI THỢ XÂY CHIẾN THẮNG!";
+                    subText = "Đội Thợ Xây đã xuất sắc hoàn thành bức tranh trước khi hết thời gian!";
+                }
+                else
+                {
+                    titleText = "ĐỘI PHÁ HOẠI CHIẾN THẮNG!";
+                    subText = "Đã hết thời gian! Đội Phá Hoại đã ngăn chặn hoàn thành tranh thành công!";
+                }
+            }
+            else if (isBattle)
+            {
+                string leadName = !string.IsNullOrEmpty(_victoryWinner) ? _victoryWinner : (net?.RoomPlayers?.OrderByDescending(p => p.Score).FirstOrDefault()?.Username ?? "");
+                titleText = "KẾT THÚC HỖN LOẠN";
+                subText = !string.IsNullOrEmpty(leadName) ? $"Người chiến thắng: {leadName.ToUpper()}" : "Trận đấu hỗn loạn đã kết thúc!";
+            }
+            else
+            {
+                titleText = "HOÀN THÀNH BỨC TRANH";
+                subText = "Bức tranh đã được các người chơi hoàn thành trọn vẹn!";
+            }
+
+            // Header Title Vàng Gold
+            var titleStyle = new GUIStyle(styles.TitleStyle)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 28,
+                fontStyle = FontStyle.Bold
+            };
+            titleStyle.normal.textColor = styles.GoldColor;
+            GUI.Label(new Rect(modal.x + 30, modal.y + 22, modal.width - 60, 38), titleText, titleStyle);
+
+            // Đường kẻ vàng phân cách
+            styles.DrawSolidRect(new Rect(modal.x + 40, modal.y + 68, modal.width - 80, 1.5f), new Color(1f, 0.82f, 0.22f, 0.45f));
+
+            // Subtitle
+            var subStyle = new GUIStyle(styles.MutedStyle)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 16
+            };
+            subStyle.normal.textColor = new Color(0.85f, 0.88f, 0.94f, 1f);
+            GUI.Label(new Rect(modal.x + 30, modal.y + 78, modal.width - 60, 24), subText, subStyle);
+
+            // Box Thưởng Xu
+            Rect rewardBox = new Rect(modal.x + 40, modal.y + 112, modal.width - 80, 56);
+            styles.DrawSolidRect(rewardBox, new Color(0.12f, 0.14f, 0.20f, 0.95f));
+            styles.DrawBorder(rewardBox, 1f, new Color(1f, 0.82f, 0.22f, 0.5f));
+
+            int myScore = 0;
+            if (net?.RoomPlayers != null && !string.IsNullOrEmpty(net.Username))
+            {
+                var me = net.RoomPlayers.FirstOrDefault(p => p.Username.Equals(net.Username, StringComparison.OrdinalIgnoreCase));
+                if (me != null) myScore = me.Score;
+            }
+
+            string rewardMain;
+            string rewardSub;
+            if (isComp)
+            {
+                bool isMyTeamWinner = (buildersWon && net != null && !net.IsSaboteur) || (!buildersWon && net != null && net.IsSaboteur);
+                rewardMain = isMyTeamWinner ? $"Chiến thắng! Nhận thưởng: +{_victoryBonus} Xu" : $"Hoàn thành ván đấu. Nhận thưởng: +{_victoryBonus} Xu";
+                rewardSub = $"(Đội chiến thắng: +150 Xu  |  Đội thua cuộc: +50 Xu)  |  Điểm tích lũy: +{myScore} điểm";
+            }
+            else if (isBattle)
+            {
+                rewardMain = $"Nhận thưởng: +{_victoryBonus} Xu";
+                rewardSub = $"Điểm ghi được: +{myScore} điểm (đã lưu vào Tổng Điểm)  |  Thưởng: +{_victoryBonus} Xu";
+            }
+            else
+            {
+                rewardMain = $"Nhận thưởng hoàn thành: +{_victoryBonus} Xu";
+                rewardSub = $"Điểm đóng góp: +{myScore} điểm (đã lưu vào Tổng Điểm)  |  Thưởng: +{_victoryBonus} Xu";
+            }
+
+            var rewMainStyle = new GUIStyle(styles.BoldStyle)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 18
+            };
+            rewMainStyle.normal.textColor = styles.GoldColor;
+            GUI.Label(new Rect(rewardBox.x + 10, rewardBox.y + 6, rewardBox.width - 20, 24), rewardMain, rewMainStyle);
+
+            var rewSubStyle = new GUIStyle(styles.MutedStyle)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 13
+            };
+            rewSubStyle.normal.textColor = new Color(0.75f, 0.80f, 0.88f, 1f);
+            GUI.Label(new Rect(rewardBox.x + 10, rewardBox.y + 30, rewardBox.width - 20, 20), rewardSub, rewSubStyle);
+
+            // Nội dung ở giữa:
+            // - Cạnh tranh: KHÔNG có bảng xếp hạng, hiện tóm tắt ván đấu
+            // - Hỗn loạn & Giải trí: CÓ BẢNG XẾP HẠNG
+            if (isComp)
+            {
+                Rect infoBox = new Rect(modal.x + 40, modal.y + 182, modal.width - 80, 320);
+                styles.DrawSolidRect(infoBox, new Color(0.10f, 0.12f, 0.16f, 0.95f));
+                styles.DrawBorder(infoBox, 1f, new Color(0.22f, 0.26f, 0.35f, 0.8f));
+
+                var infoTitleStyle = new GUIStyle(styles.BoldStyle)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontSize = 17
+                };
+                infoTitleStyle.normal.textColor = styles.GoldColor;
+                GUI.Label(new Rect(infoBox.x + 20, infoBox.y + 20, infoBox.width - 40, 28), "TỔNG KẾT VÁN ĐẤU TRANH ĐẤU", infoTitleStyle);
+
+                var infoBodyStyle = new GUIStyle(styles.BodyStyle)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontSize = 15
+                };
+                infoBodyStyle.normal.textColor = new Color(0.90f, 0.92f, 0.96f, 1f);
+
+                string myRole = (net != null && net.IsSaboteur) ? "Đội Phá Hoại" : "Đội Thợ Xây";
+                string winTeamStr = buildersWon ? "Đội Thợ Xây" : "Đội Phá Hoại";
+                bool iWon = (buildersWon && net != null && !net.IsSaboteur) || (!buildersWon && net != null && net.IsSaboteur);
+                string myResultStr = iWon ? "CHIẾN THẮNG" : "THUA CUỘC";
+
+                string infoText = $"Vai trò của bạn:  {myRole}\n\n" +
+                                  $"Đội chiến thắng:  {winTeamStr}\n\n" +
+                                  $"Kết quả cá nhân:  {myResultStr}\n\n" +
+                                  $"Tiến độ ghép tranh:  {net?.PlacedPieces ?? 0}/{net?.TotalPieces ?? 0} mảnh";
+
+                GUI.Label(new Rect(infoBox.x + 30, infoBox.y + 70, infoBox.width - 60, 200), infoText, infoBodyStyle);
+            }
+            else
+            {
+                // BẢNG XẾP HẠNG cho Giải trí & Hỗn loạn
+                Rect rankBox = new Rect(modal.x + 40, modal.y + 182, modal.width - 80, 320);
+                styles.DrawSolidRect(rankBox, new Color(0.10f, 0.12f, 0.16f, 0.95f));
+                styles.DrawBorder(rankBox, 1f, new Color(0.22f, 0.26f, 0.35f, 0.8f));
+
+                var rankHeaderStyle = new GUIStyle(styles.BoldStyle)
+                {
+                    alignment = TextAnchor.MiddleLeft,
+                    fontSize = 15
+                };
+                rankHeaderStyle.normal.textColor = styles.GoldColor;
+                string rankHeaderText = isBattle ? "BẢNG XẾP HẠNG ĐIỂM SỐ HỖN LOẠN" : "BẢNG XẾP HẠNG ĐÓNG GÓP";
+                GUI.Label(new Rect(rankBox.x + 24, rankBox.y + 12, 350, 26), rankHeaderText, rankHeaderStyle);
+
+                // Đường phân cách tiêu đề bảng
+                styles.DrawSolidRect(new Rect(rankBox.x + 20, rankBox.y + 42, rankBox.width - 40, 1f), new Color(0.25f, 0.30f, 0.40f, 0.7f));
+
+                // Danh sách người chơi sắp xếp theo điểm giảm dần
+                var players = net?.RoomPlayers != null
+                    ? net.RoomPlayers.OrderByDescending(p => p.Score).ToList()
+                    : new List<PlayerInfo>();
+
+                float rowY = rankBox.y + 52;
+                float rowH = 36f;
+                int maxRows = Mathf.Min(players.Count, 6);
+
+                var rankRowStyle = new GUIStyle(styles.BodyStyle) { fontSize = 15 };
+                var scoreRowStyle = new GUIStyle(styles.BoldStyle) { fontSize = 15, alignment = TextAnchor.MiddleRight };
+
+                for (int i = 0; i < maxRows; i++)
+                {
+                    var p = players[i];
+                    bool isTop1 = (i == 0 && p.Score > 0);
+
+                    // Nền xen kẽ cho các dòng
+                    if (i % 2 == 1)
+                    {
+                        styles.DrawSolidRect(new Rect(rankBox.x + 10, rowY, rankBox.width - 20, rowH), new Color(0.14f, 0.16f, 0.22f, 0.6f));
+                    }
+
+                    Color rowColor = isTop1 ? styles.GoldColor : new Color(0.92f, 0.94f, 0.98f, 1f);
+                    rankRowStyle.normal.textColor = rowColor;
+                    rankRowStyle.fontStyle = isTop1 ? FontStyle.Bold : FontStyle.Normal;
+                    scoreRowStyle.normal.textColor = rowColor;
+
+                    string rankPrefix = $"{i + 1}.";
+                    string nameStr = $"{rankPrefix,-4} {p.Username}";
+                    string scoreStr = $"{p.Score} điểm";
+
+                    GUI.Label(new Rect(rankBox.x + 24, rowY + 5, 400, 26), nameStr, rankRowStyle);
+                    GUI.Label(new Rect(rankBox.xMax - 260, rowY + 5, 236, 26), scoreStr, scoreRowStyle);
+
+                    rowY += rowH + 4f;
+                }
+
+                if (players.Count == 0)
+                {
+                    var emptyStyle = new GUIStyle(styles.MutedStyle) { alignment = TextAnchor.MiddleCenter, fontSize = 14 };
+                    GUI.Label(new Rect(rankBox.x + 20, rankBox.y + 100, rankBox.width - 40, 30), "Không có dữ liệu người chơi", emptyStyle);
+                }
+            }
+
+            // Nút "QUAY VỀ SẢNH" Vàng Gold phẳng
+            float btnW = 320f;
+            float btnH = 50f;
+            Rect btnRect = new Rect(modal.x + (modal.width - btnW) * 0.5f, modal.y + modal.height - btnH - 18, btnW, btnH);
+
+            if (styles.DrawButton(btnRect, "QUAY VỀ SẢNH", false, isGold: true, isDanger: false, 16))
             {
                 AudioManager.Instance?.PlayClick();
+                AudioManager.Instance?.StopAmbience();
                 _showVictoryModal = false;
                 PuzzleNetworkManager.Instance?.LeaveRoom();
             }
@@ -268,7 +492,7 @@ namespace PuzzleOnline.UI
             GUI.Box(cardRect, GUIContent.none, styles.CardStyle);
             styles.DrawBorder(cardRect, 2f, styles.GoldColor);
 
-            GUI.Label(new Rect(cardRect.x + 50, cardRect.y + 35, 660, 45), "⏰ HẾT THỜI GIAN MỤC TIÊU ⏰", styles.TitleStyle);
+            GUI.Label(new Rect(cardRect.x + 50, cardRect.y + 35, 660, 45), "HẾT THỜI GIAN MỤC TIÊU", styles.TitleStyle);
             styles.DrawSolidRect(new Rect(cardRect.x + 50, cardRect.y + 88, 660, 2), new Color(0.35f, 0.4f, 0.5f, 0.6f));
 
             GUI.Label(new Rect(cardRect.x + 50, cardRect.y + 105, 660, 32), "Thời gian đặt ra cho màn chơi đã kết thúc!", styles.HeaderStyle);
@@ -299,6 +523,7 @@ namespace PuzzleOnline.UI
 
                 if (styles.DrawButton(new Rect(cardRect.x + 220, cardRect.y + 375, 320, 50), "RỜI PHÒNG", false, false, true, 16))
                 {
+                    AudioManager.Instance?.StopAmbience();
                     _showTimeoutModal = false;
                     net.LeaveRoom();
                 }
@@ -311,6 +536,7 @@ namespace PuzzleOnline.UI
 
                 if (styles.DrawButton(new Rect(cardRect.x + 220, cardRect.y + 340, 320, 55), "RỜI PHÒNG", false, false, true, 17))
                 {
+                    AudioManager.Instance?.StopAmbience();
                     _showTimeoutModal = false;
                     net.LeaveRoom();
                 }

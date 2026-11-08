@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using PuzzleOnline.Utility;
@@ -173,6 +173,49 @@ namespace PlayerController
         {
             velocity.y = verticalForce;
             isGrounded = false;
+        }
+
+        /// <summary>
+        /// Bị hút bởi Nam Châm (Magnet): Kéo giật mượt mà người chơi về phía vị trí chỉ định.
+        /// </summary>
+        public void PullTowards(Vector3 targetPos, float duration = 0.55f)
+        {
+            StopCoroutine("PullRoutine");
+            StartCoroutine(PullRoutine(targetPos, duration));
+        }
+
+        private IEnumerator PullRoutine(Vector3 targetPos, float duration)
+        {
+            if (controller == null) controller = GetComponent<CharacterController>();
+            float elapsed = 0f;
+            Vector3 startPos = transform.position;
+            velocity.y = 2.5f;
+            isGrounded = false;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                float ease = 1f - Mathf.Pow(1f - t, 3f);
+                Vector3 currentTarget = Vector3.Lerp(startPos, targetPos, ease);
+                Vector3 delta = currentTarget - transform.position;
+                delta.y = 0f;
+
+                if (controller != null && controller.enabled)
+                {
+                    controller.Move(delta);
+                }
+                else
+                {
+                    transform.position = new Vector3(currentTarget.x, transform.position.y, currentTarget.z);
+                }
+                yield return null;
+            }
+
+            var cam = GetComponentInChildren<FirstPersonCamera.FirstPersonCameraScript>();
+            float yaw = cam != null ? cam.YRotation : transform.eulerAngles.y;
+            float pitch = cam != null ? cam.XRotation : 0f;
+            PuzzleOnline.Network.PuzzleNetworkManager.Instance?.SendLook(yaw, pitch, transform.position);
         }
 
         private void HandleGroundCheck()

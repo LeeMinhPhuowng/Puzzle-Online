@@ -85,49 +85,43 @@ namespace PuzzleOnline.UI
                 leaveRoomButton.onClick.AddListener(OnLeaveRoomClicked);
             }
 
-            if (peacefulButton == null)
+            // Tìm và gán sự kiện cho các nút chế độ chơi:
+            // - "Giải trí" -> CLASSIC
+            // - "Tranh đấu" -> COMPETITIVE (chia 2 team Thợ Xây vs Phá Hoại)
+            // - "Hỗn loạn" -> BATTLE (tự do đua điểm, nhặt hộp quà, bật Aura)
+            var allModeBtns = GetComponentsInChildren<Button>(true);
+            foreach (var b in allModeBtns)
             {
-                var t = transform.Find("Peaceful") ?? transform.Find("PeacefulBtn") ?? transform.Find("GiaiTri");
-                if (t != null) peacefulButton = t.GetComponent<Button>();
-            }
-            if (mayhemButton == null)
-            {
-                var t = transform.Find("Mayhem") ?? transform.Find("MayhemBtn") ?? transform.Find("HonLoan");
-                if (t != null) mayhemButton = t.GetComponent<Button>();
-            }
-            if (battleButton == null)
-            {
-                var t = transform.Find("Warfield") ?? transform.Find("Battle") ?? transform.Find("BattleBtn") ?? transform.Find("TranhDau") ?? transform.Find("Tranh dau") ?? transform.Find("WarField");
-                if (t != null)
+                string txt = b.GetComponentInChildren<TextMeshProUGUI>(true)?.text?.Trim().ToLower() ?? "";
+                if (txt.Contains("hỗn loạn") || txt.Contains("hon loan"))
                 {
-                    battleButton = t.GetComponent<Button>();
+                    battleButton = b;
                 }
-                else
+                else if (txt.Contains("tranh đấu") || txt.Contains("tranh dau") || txt.Contains("teamfight"))
                 {
-                    var allButtons = GetComponentsInChildren<Button>(true);
-                    foreach (var b in allButtons)
-                    {
-                        string n = b.gameObject.name.ToLower();
-                        if (n.Contains("warfield") || n.Contains("battle") || n.Contains("tranh"))
-                        {
-                            battleButton = b;
-                            break;
-                        }
-                    }
+                    mayhemButton = b;
+                }
+                else if (txt.Contains("giải trí") || txt.Contains("giai tri") || txt.Contains("peaceful"))
+                {
+                    peacefulButton = b;
                 }
             }
+
+            if (peacefulButton == null) peacefulButton = (transform.Find("Peaceful") ?? transform.Find("PeacefulBtn") ?? transform.Find("GiaiTri"))?.GetComponent<Button>();
+            if (mayhemButton == null) mayhemButton = (transform.Find("Warfield/Teamfight") ?? transform.Find("Warfield") ?? transform.Find("TranhDau"))?.GetComponent<Button>();
+            if (battleButton == null) battleButton = (transform.Find("Mayhem") ?? transform.Find("MayhemBtn") ?? transform.Find("HonLoan") ?? transform.Find("Battle"))?.GetComponent<Button>();
 
             if (peacefulButton != null)
             {
                 peacefulButton.onClick.RemoveAllListeners();
                 peacefulButton.onClick.AddListener(() => OnSelectGameMode("CLASSIC"));
             }
-            if (mayhemButton != null)
+            if (mayhemButton != null) // Tranh đấu -> COMPETITIVE
             {
                 mayhemButton.onClick.RemoveAllListeners();
                 mayhemButton.onClick.AddListener(() => OnSelectGameMode("COMPETITIVE"));
             }
-            if (battleButton != null)
+            if (battleButton != null) // Hỗn loạn -> BATTLE
             {
                 battleButton.onClick.RemoveAllListeners();
                 battleButton.onClick.AddListener(() => OnSelectGameMode("BATTLE"));
@@ -593,17 +587,20 @@ namespace PuzzleOnline.UI
         public static string GetThemeDisplayName(string themeId)
         {
             if (string.IsNullOrEmpty(themeId)) return string.Empty;
+            string name = themeId;
             var net = PuzzleNetworkManager.Instance;
             if (net != null)
             {
-                string name = net.GetThemeName(themeId);
-                if (!string.IsNullOrEmpty(name)) return SanitizeDisplayName(name);
+                string netName = net.GetThemeName(themeId);
+                if (!string.IsNullOrEmpty(netName)) name = netName;
+            }
+            else
+            {
+                var t = ContentRegistry.Instance?.GetTheme(themeId);
+                if (t != null && !string.IsNullOrEmpty(t.displayName)) name = t.displayName;
             }
 
-            var t = ContentRegistry.Instance?.GetTheme(themeId);
-            if (t != null && !string.IsNullOrEmpty(t.displayName)) return SanitizeDisplayName(t.displayName);
-
-            return SanitizeDisplayName(themeId);
+            return SanitizeDisplayName(name).Replace("SCN_", "", StringComparison.OrdinalIgnoreCase).Trim();
         }
 
         public static string ResolvePuzzleId(string inputOrId)

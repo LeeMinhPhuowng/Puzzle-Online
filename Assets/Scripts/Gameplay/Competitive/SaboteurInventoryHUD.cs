@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 using PuzzleOnline.Network;
 using PuzzleOnline.Utility;
@@ -32,7 +32,7 @@ namespace PuzzleOnline.Gameplay.Competitive
             "SHOVEL" => "XÀ BENG: Nhấp chuột trái vào mảnh đã ghép đúng để cạy ra.",
             "INK" => "BÌNH MỰC: Nhấp chuột trái vào bàn chơi để bôi đen và giấu điểm mảnh ghép.",
             "SLAP" => "GĂNG TAY: Nhấp chuột trái để tát bay người chơi lên trời.",
-            "MAGNET" => "NAM CHÂM: Nhấp chuột trái để hút mảnh ghép từ bàn hoặc người chơi (cố định 5s).",
+            "MAGNET" => "NAM CHÂM: Nhấp chuột trái vào người chơi để hút họ về phía mình và làm rơi mảnh đang cầm.",
             "FLASHLIGHT" => "ĐÈN PIN: Nhấp chuột trái vào người chơi để rọi mù màn hình.",
             _ => "Chưa có vật phẩm. Tìm hộp quà và nhấn [E] để mở."
         };
@@ -147,12 +147,12 @@ namespace PuzzleOnline.Gameplay.Competitive
         {
             return itemType switch
             {
-                "FLASHLIGHT" => "🔦 Đèn Pin",
-                "INK" => "🧪 Bình Mực",
-                "SLAP" => "🧤 Găng Tay",
-                "MAGNET" => "🧲 Nam Châm",
-                "SHOVEL" => "⛏️ Xà Beng",
-                "GIFTBOX" => "🎁 Hộp Quà",
+                "FLASHLIGHT" => "Đèn Pin",
+                "INK" => "Bình Mực",
+                "SLAP" => "Găng Tay",
+                "MAGNET" => "Nam Châm",
+                "SHOVEL" => "Xà Beng",
+                "GIFTBOX" => "Hộp Quà",
                 _ => itemType
             };
         }

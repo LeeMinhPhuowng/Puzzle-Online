@@ -31,6 +31,8 @@ namespace PuzzleOnline.Network
         public event Action<ReconnectPromptInfo> OnReconnectPromptReceived;
         public event Action<string, string> OnPasswordRequired;
         public event Action<int> OnCoinsUpdated;
+        public event Action<int> OnScoreUpdated;
+        public event Action<int> OnCompletedUpdated;
 
         public NetworkRoomService(RealtimeClient client)
         {
@@ -126,6 +128,8 @@ namespace PuzzleOnline.Network
             {
                 case "LOBBY_SNAPSHOT":
                     if (message.Data.ContainsKey("coins")) OnCoinsUpdated?.Invoke(message.GetInt("coins"));
+                    if (message.Data.ContainsKey("totalScore")) OnScoreUpdated?.Invoke(message.GetInt("totalScore"));
+                    if (message.Data.ContainsKey("completed")) OnCompletedUpdated?.Invoke(message.GetInt("completed"));
                     LobbyRooms.Clear();
                     LobbyRooms.AddRange(ModelParser.Rooms(message.Get("rooms")));
                     if (friendsListToPopulate != null)

@@ -60,6 +60,18 @@ namespace PuzzleOnline.UI
             if (settingsView == null) settingsView = FindViewObject("SettingsView");
             if (profileView == null) profileView = FindViewObject("ProfileView");
 
+            if (settingsView != null)
+            {
+                var settingsUI = settingsView.GetComponent<LobbySettingsModalUI>()
+                    ?? settingsView.AddComponent<LobbySettingsModalUI>();
+            }
+
+            if (profileView != null)
+            {
+                var profileUI = profileView.GetComponent<LobbyProfileModalUI>()
+                    ?? profileView.AddComponent<LobbyProfileModalUI>();
+            }
+
             SetupModal(shopButton, shopView);
             SetupModal(settingsButton, settingsView);
             SetupModal(profileButton, profileView);

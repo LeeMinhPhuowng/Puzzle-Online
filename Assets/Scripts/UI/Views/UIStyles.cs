@@ -205,6 +205,10 @@ namespace PuzzleOnline.UI
             {
                 DrawBorder(rect, 2f, new Color(0.65f, 0.88f, 1f, 1f));
             }
+            else if (isGold)
+            {
+                DrawBorder(rect, 2f, new Color(1f, 0.88f, 0.35f, 0.95f));
+            }
             else
             {
                 DrawBorder(rect, 1f, new Color(0.28f, 0.33f, 0.44f, 0.7f));
@@ -233,7 +237,7 @@ namespace PuzzleOnline.UI
             return clicked;
         }
 
-        public float DrawSlider(Rect rect, string label, float value, string unit = "%")
+        public float DrawSlider(Rect rect, string label, float value, string unit = "%", Color? fillColor = null)
         {
             EnsureResources();
             float labelW = 210f;
@@ -244,8 +248,15 @@ namespace PuzzleOnline.UI
             Rect trackRect = new Rect(rect.x + labelW + 10f, rect.y + (rect.height - 10f) * 0.5f, sliderW, 10f);
             Rect valRect = new Rect(rect.xMax - textW, rect.y, textW, rect.height);
 
+            var oldBoldCol = BoldStyle.normal.textColor;
+            BoldStyle.normal.textColor = Color.white;
             GUI.Label(lblRect, label, BoldStyle);
+            BoldStyle.normal.textColor = oldBoldCol;
+
+            var oldMutedCol = MutedStyle.normal.textColor;
+            MutedStyle.normal.textColor = new Color(0.85f, 0.88f, 0.95f, 1f);
             GUI.Label(valRect, $"{Mathf.RoundToInt(Mathf.Clamp01(value) * 100f)}{unit}", MutedStyle);
+            MutedStyle.normal.textColor = oldMutedCol;
 
             // Track background
             DrawSolidRect(trackRect, new Color(0.12f, 0.14f, 0.20f, 1f));
@@ -254,14 +265,19 @@ namespace PuzzleOnline.UI
             float fillW = Mathf.Clamp01(value) * sliderW;
             if (fillW > 0)
             {
-                DrawSolidRect(new Rect(trackRect.x, trackRect.y, fillW, 10f), AccentColor);
+                Color actualFill = fillColor.HasValue ? fillColor.Value : AccentColor;
+                DrawSolidRect(new Rect(trackRect.x, trackRect.y, fillW, 10f), actualFill);
             }
 
             // Knob handle
             float knobSize = 18f;
             Rect knobRect = new Rect(trackRect.x + fillW - knobSize * 0.5f, trackRect.y + 5f - knobSize * 0.5f, knobSize, knobSize);
             bool isHovered = trackRect.Contains(Event.current.mousePosition) || knobRect.Contains(Event.current.mousePosition);
-            DrawSolidRect(knobRect, isHovered ? Color.white : new Color(0.85f, 0.88f, 0.95f, 1f));
+            Color knobCol = fillColor.HasValue
+                ? (isHovered ? Color.white : new Color(1f, 0.92f, 0.60f, 1f))
+                : (isHovered ? Color.white : new Color(0.85f, 0.88f, 0.95f, 1f));
+            DrawSolidRect(knobRect, knobCol);
+            DrawBorder(knobRect, 1f, new Color(0.1f, 0.12f, 0.16f, 0.8f));
 
             int controlID = GUIUtility.GetControlID(FocusType.Passive);
             Event evt = Event.current;
@@ -321,7 +337,15 @@ namespace PuzzleOnline.UI
         {
             if (string.IsNullOrEmpty(themeId)) return "";
             var themeCat = ServiceLocator.Get<IThemeCatalog>() ?? ContentRegistry.Instance;
-            return themeCat.GetThemeDisplayName(themeId);
+            string name = themeCat != null ? themeCat.GetThemeDisplayName(themeId) : themeId;
+            if (string.IsNullOrEmpty(name)) name = themeId;
+            return CleanThemeName(name);
+        }
+
+        public static string CleanThemeName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "";
+            return name.Replace("SCN_", "", StringComparison.OrdinalIgnoreCase).Trim();
         }
 
         public static string FormatTimeLimit(int seconds)

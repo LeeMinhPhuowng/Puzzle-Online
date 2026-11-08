@@ -73,7 +73,24 @@ namespace PuzzleOnline.UI
             chatClose.onClick.AddListener(() => SetChatOpen(false));
             sendButton.onClick.AddListener(SendChat);
             chatInput.onSubmit.AddListener(_ => SendChat());
-            microphoneButton.onClick.AddListener(ToggleMicrophone);
+            if (microphoneButton != null)
+            {
+                microphoneButton.gameObject.SetActive(false);
+            }
+            if (microphone != null)
+            {
+                var micPanelRt = microphone.transform.parent as RectTransform;
+                if (micPanelRt != null && micPanelRt.name.Contains("MicrophonePanel"))
+                {
+                    micPanelRt.sizeDelta = new Vector2(330f, 48f);
+                }
+                var micRt = microphone.rectTransform;
+                micRt.anchorMin = new Vector2(0f, 0f);
+                micRt.anchorMax = new Vector2(1f, 1f);
+                micRt.offsetMin = new Vector2(16f, 0f);
+                micRt.offsetMax = new Vector2(-16f, 0f);
+                microphone.alignment = TextAlignmentOptions.MidlineLeft;
+            }
             chatMessages.spriteAsset = emojiSprites;
             chatInput.textComponent.spriteAsset = emojiSprites;
             for (int i = 0; i < emojiButtons.Length; i++)
@@ -170,7 +187,7 @@ namespace PuzzleOnline.UI
             int seconds = Mathf.Max(0, network.RemainingSeconds);
             timer.text = network.RemainingSeconds < 0 ? "∞" : $"{seconds / 60:00}:{seconds % 60:00}";
             ranking.text = string.Join("\n", network.RoomPlayers.OrderByDescending(p => p.Score)
-                .Select((p, i) => $"{i + 1}. {p.Username}{(p.IsHost ? " ★" : "")}    {p.Score} đ"));
+                .Select((p, i) => $"{i + 1}. {p.Username}    {p.Score} điểm"));
             bool overhead = FirstPersonCamera.FirstPersonCameraScript.IsOverheadActive;
             tutorial.text = overhead
                 ? "[Z / Esc] Góc nhìn thứ nhất\n[Chuột trái] Nhấc / Kéo / Thả\n[R / Cuộn chuột] Xoay 90°\n[T] Chat    [V] Micro"
@@ -181,28 +198,21 @@ namespace PuzzleOnline.UI
             bool blocked = PuzzleOnlineUIManager.Instance != null && PuzzleOnlineUIManager.Instance.IsPauseOrDialogOpen;
             inputGroup.interactable = !blocked;
             inputGroup.blocksRaycasts = !blocked;
-            bool showRole = network.IsCompetitive && !network.IsBattleMode && !blocked && Time.unscaledTime < roleExpires;
+            // Bảng vai trò chỉ hiện trong chế độ Tranh Đấu (COMPETITIVE - chia đội Thợ Xây vs Phá Hoại)
+            // Không hiện trong chế độ Hỗn Loạn (BATTLE - đua điểm tự do) và Giải Trí (CLASSIC)
+            bool showRole = network.IsCompetitive && !blocked && Time.unscaledTime < roleExpires;
             rolePanel.SetActive(showRole);
             if (showRole)
             {
-                if (network.IsBattleMode)
+                if (roleBackground != null)
+                    roleBackground.sprite = network.IsSaboteur ? saboteurRoleSprite : builderRoleSprite;
+                if (roleTitleImage != null)
                 {
-                    if (roleBackground != null) roleBackground.sprite = builderRoleSprite;
-                    if (roleTitleImage != null) roleTitleImage.gameObject.SetActive(false);
-                    roleText.text = "CHẾ ĐỘ TRANH ĐẤU\nAi ghép được nhiều điểm nhất sẽ chiến thắng!";
+                    roleTitleImage.gameObject.SetActive(true);
+                    roleTitleImage.sprite = network.IsSaboteur ? saboteurTitleSprite : solverTitleSprite;
                 }
-                else
-                {
-                    if (roleBackground != null)
-                        roleBackground.sprite = network.IsSaboteur ? saboteurRoleSprite : builderRoleSprite;
-                    if (roleTitleImage != null)
-                    {
-                        roleTitleImage.gameObject.SetActive(true);
-                        roleTitleImage.sprite = network.IsSaboteur ? saboteurTitleSprite : solverTitleSprite;
-                    }
-                    roleText.text = network.IsSaboteur ? "ĐỘI PHÁ HOẠI\nTìm hộp quà và ngăn đội Lắp ghép hoàn thành!"
-                        : "ĐỘI LẮP GHÉP\nHợp tác ghép tranh trước khi hết giờ!";
-                }
+                roleText.text = network.IsSaboteur ? "ĐỘI PHÁ HOẠI (TRANH ĐẤU)\nTìm hộp quà và ngăn đội Lắp ghép hoàn thành!"
+                    : "ĐỘI LẮP GHÉP (TRANH ĐẤU)\nHợp tác ghép tranh trước khi hết giờ!";
             }
             var inventory = SaboteurInventoryHUD.Instance;
             bool hasItem = inventory != null && !string.IsNullOrEmpty(inventory.CurrentItem);
@@ -271,12 +281,12 @@ namespace PuzzleOnline.UI
                         showPickup = true;
                         if (p.isObscuredByInk)
                         {
-                            promptStr = "Mảnh ghép bị dính mực: ???";
+                            promptStr = "???";
                             promptColor = Color.gray;
                         }
                         else
                         {
-                            promptStr = $"★ {p.points} điểm ({PuzzleSystem.Gameplay.PieceRarity.GetRarityName(p.points)})";
+                            promptStr = $"{p.points} điểm";
                             promptColor = PuzzleSystem.Gameplay.PieceRarity.GetColor(p.points);
                         }
                     }

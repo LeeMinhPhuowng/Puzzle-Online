@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -173,6 +173,51 @@ namespace PuzzleOnline.Gameplay.Competitive
                         {
                             interactor.ForceDropHeldPiece();
                         }
+
+                        var camScript = FirstPersonCamera.FirstPersonCameraScript.Instance ?? FindFirstObjectByType<FirstPersonCamera.FirstPersonCameraScript>();
+                        if (camScript != null)
+                        {
+                            camScript.TriggerExternalShake(0.18f, 0.4f);
+                        }
+
+                        Vector3 pullDestination = transform.position;
+                        bool foundAttacker = false;
+                        var avatars = FindObjectsByType<PuzzleSystem.Gameplay.RemotePlayerAvatar>(FindObjectsSortMode.None);
+                        foreach (var av in avatars)
+                        {
+                            if (av != null && string.Equals(av.username, byUser, StringComparison.OrdinalIgnoreCase))
+                            {
+                                Vector3 toAttacker = av.transform.position - transform.position;
+                                toAttacker.y = 0f;
+                                float dist = toAttacker.magnitude;
+                                float stopDistance = 1.8f;
+                                if (dist > stopDistance)
+                                {
+                                    pullDestination = av.transform.position - toAttacker.normalized * stopDistance;
+                                }
+                                else
+                                {
+                                    pullDestination = av.transform.position;
+                                }
+                                foundAttacker = true;
+                                break;
+                            }
+                        }
+
+                        var playerCtrl = FindFirstObjectByType<PlayerController.PlayerController>();
+                        if (playerCtrl != null)
+                        {
+                            if (foundAttacker)
+                            {
+                                playerCtrl.PullTowards(pullDestination, 0.55f);
+                            }
+                            else
+                            {
+                                playerCtrl.LaunchUpward(3f);
+                            }
+                        }
+
+                        PuzzleOnline.Audio.AudioManager.Instance?.PlaySnap();
                     }
                     break;
             }
@@ -237,7 +282,7 @@ namespace PuzzleOnline.Gameplay.Competitive
             // Banner Game Over Thắng/Thua
             if (gameOverTimer > 0f && !string.IsNullOrEmpty(gameOverResult))
             {
-                DrawGameOverBanner();
+                // DrawGameOverBanner();
             }
         }
 

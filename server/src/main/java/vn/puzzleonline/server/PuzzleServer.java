@@ -312,8 +312,18 @@ public final class PuzzleServer {
             account.roomId = "";
             account.status = "IDLE";
         }
+        long totalScore = 0;
+        int completedCount = 0;
+        if (db != null) {
+            var profileOpt = accountRepo.getProfile(account.id);
+            if (profileOpt.isPresent()) {
+                totalScore = profileOpt.get().totalScore();
+            }
+            completedCount = puzzleRepo.getUniquePuzzlesCompletedCount(account.id);
+        }
         client.send(resumed ? "RESUME_OK" : "AUTH_OK", "username", account.username,
-                "token", account.sessionToken, "coins", account.coins, "theme", account.equippedTheme);
+                "token", account.sessionToken, "coins", account.coins, "theme", account.equippedTheme,
+                "totalScore", totalScore, "completed", completedCount);
         sendShop(client);
         sendLobby(client);
         if (hasPendingReconnect && room != null) {
@@ -665,8 +675,8 @@ public final class PuzzleServer {
             }
         }
         broadcastRoom(room);
-        String label = "BATTLE".equals(room.gameMode) ? "Tranh Đấu (Đấu Điểm Tự Do)" :
-                       "COMPETITIVE".equals(room.gameMode) ? "Cạnh Tranh (Thợ Xây vs Phá Hoại)" : "Cổ Điển (Hợp Tác)";
+        String label = "BATTLE".equals(room.gameMode) ? "Hỗn Loạn (Đua Điểm Tự Do & Bật Aura)" :
+                       "COMPETITIVE".equals(room.gameMode) ? "Tranh Đấu (Chia Đội: Thợ Xây vs Phá Hoại)" : "Cổ Điển (Hợp Tác)";
         broadcastPlayerEvent(room, "Chủ phòng đã chuyển chế độ chơi sang: " + label);
         broadcastLobbyAll();
     }
@@ -728,7 +738,7 @@ public final class PuzzleServer {
         member.heldItem = grantedItem;
 
         broadcast(room, "ITEM_PICKED_UP", "itemId", targetItem.id, "type", grantedItem, "by", client.account.username);
-        broadcastPlayerEvent(room, "🎁 " + client.account.username + " đã nhặt Hộp Quà và nhận được: " + grantedItem + "!");
+        broadcastPlayerEvent(room, client.account.username + " đã nhặt Hộp Quà và nhận được: " + grantedItem + "!");
     }
 
     private void useSabotage(ClientHandler client, Wire.Message message) {
@@ -809,7 +819,7 @@ public final class PuzzleServer {
                         "by", client.account.username, "placed", placedCount, "total", room.game.pieces.size(),
                         "deducted", deductedPoints, "deductedFrom", originalOwner != null ? originalOwner : "");
                 broadcastGame(room);
-                broadcastPlayerEvent(room, "⚠️ " + client.account.username + " đã dùng XÀ BENG cạy bật mảnh #" + (piece.id + 1) +
+                broadcastPlayerEvent(room, client.account.username + " đã dùng XÀ BENG cạy bật mảnh #" + (piece.id + 1) +
                         (originalOwner != null && !originalOwner.isBlank() ? " (trừ " + deductedPoints + "đ của " + originalOwner + ")!" : "!"));
             }
             case "INK" -> {
@@ -849,9 +859,9 @@ public final class PuzzleServer {
                 broadcast(room, "INK_SPLASH", "pieceIds", idsStr, "duration", ItemConfig.INK_DURATION_SEC, "by", client.account.username);
 
                 if (placedToTake > 0) {
-                    broadcastPlayerEvent(room, "🦑 " + client.account.username + " đã làm đổ lọ MỰC bôi đen " + unplacedToTake + " mảnh chưa ghép và văng mực che mờ " + placedToTake + " mảnh trên bảng!");
+                    broadcastPlayerEvent(room, client.account.username + " đã làm đổ lọ MỰC bôi đen " + unplacedToTake + " mảnh chưa ghép và văng mực che mờ " + placedToTake + " mảnh trên bảng!");
                 } else {
-                    broadcastPlayerEvent(room, "🦑 " + client.account.username + " đã làm đổ lọ MỰC bôi đen và giấu điểm của " + unplacedToTake + " mảnh ghép!");
+                    broadcastPlayerEvent(room, client.account.username + " đã làm đổ lọ MỰC bôi đen và giấu điểm của " + unplacedToTake + " mảnh ghép!");
                 }
             }
             case "SLAP" -> {
@@ -902,83 +912,53 @@ public final class PuzzleServer {
                         "duration", ItemConfig.GLOVE_STUN_DURATION_SEC, "force", ItemConfig.GLOVE_KNOCKBACK_FORCE, "stolenPieceId", stolenPieceId);
 
                 if (stolenPieceId >= 0) {
-                    broadcastPlayerEvent(room, "🧤 " + client.account.username + " đã TÁT bay " + targetUser + " lên trời và cướp luôn mảnh #" + (stolenPieceId + 1) + " vào tay!");
+                    broadcastPlayerEvent(room, client.account.username + " đã TÁT bay " + targetUser + " lên trời và cướp luôn mảnh #" + (stolenPieceId + 1) + " vào tay!");
                 } else if (targetHeldPiece != null) {
-                    broadcastPlayerEvent(room, "🧤 " + client.account.username + " đã TÁT bay " + targetUser + " lên trời làm văng rơi mảnh #" + (targetHeldPiece.id + 1) + "!");
+                    broadcastPlayerEvent(room, client.account.username + " đã TÁT bay " + targetUser + " lên trời làm văng rơi mảnh #" + (targetHeldPiece.id + 1) + "!");
                 } else {
-                    broadcastPlayerEvent(room, "🧤 " + client.account.username + " đã TÁT bay " + targetUser + " lên trời!");
+                    broadcastPlayerEvent(room, client.account.username + " đã TÁT bay " + targetUser + " lên trời!");
                 }
             }
             case "MAGNET" -> {
-                Piece targetPiece = null;
-                Member targetMember = null;
-
-                if (targetPieceId >= 0) {
-                    for (Piece p : room.game.pieces) {
-                        if (p.id == targetPieceId) {
-                            targetPiece = p;
-                            break;
-                        }
-                    }
-                    if (targetPiece == null || targetPiece.placed) {
-                        client.error("INVALID_PIECE", "Mảnh ghép không hợp lệ hoặc đã được ghép vào khung.");
-                        return;
-                    }
-                    long now = System.currentTimeMillis();
-                    if (!targetPiece.lockedBy.isEmpty() && !targetPiece.lockedBy.equalsIgnoreCase(client.account.username)) {
-                        if (targetPiece.lockUntil > now && !isBattle) {
-                            client.error("PIECE_LOCKED", "Mảnh ghép đang được người chơi khác cầm!");
-                            return;
-                        }
-                    }
-                } else if (targetUser != null && !targetUser.isBlank()) {
-                    String reqUser = targetUser;
-                    Member target = room.members.values().stream()
-                            .filter(m -> m.username.equalsIgnoreCase(reqUser)).findFirst().orElse(null);
-                    boolean validTeam = isBattle || "BUILDER".equalsIgnoreCase(target != null ? target.team : "");
-                    if (target == null || !target.connected || target == member || !validTeam) {
-                        client.error("INVALID_TARGET", isBattle ? "Hãy chọn một người chơi đối thủ trong phòng." : "Hãy chọn một người chơi thuộc Đội Thợ Xây đang trong phòng.");
-                        return;
-                    }
-                    targetMember = target;
-                    long now = System.currentTimeMillis();
-                    for (Piece p : room.game.pieces) {
-                        if (p.lockedBy.equalsIgnoreCase(target.username) && !p.placed && (p.lockUntil == 0 || p.lockUntil > now)) {
-                            targetPiece = p;
-                            break;
-                        }
-                    }
-                    if (targetPiece == null) {
-                        client.error("NO_PIECE_HELD", "Người chơi " + target.username + " hiện không cầm mảnh ghép nào! Nam châm không bị tiêu hao.");
-                        return;
-                    }
-                } else {
-                    client.error("NO_TARGET", "Hãy nhắm vào một mảnh ghép trên bàn hoặc người chơi để hút nam châm!");
+                if (targetUser == null || targetUser.isBlank()) {
+                    client.error("NO_TARGET", "Phải chọn một người chơi mục tiêu để hút nam châm!");
+                    return;
+                }
+                String reqUser = targetUser;
+                Member target = room.members.values().stream()
+                        .filter(m -> m.username.equalsIgnoreCase(reqUser)).findFirst().orElse(null);
+                boolean validTeam = isBattle || "BUILDER".equalsIgnoreCase(target != null ? target.team : "");
+                if (target == null || !target.connected || target == member || !validTeam) {
+                    client.error("INVALID_TARGET", isBattle ? "Hãy chọn một người chơi đối thủ trong phòng." : "Hãy chọn một người chơi thuộc Đội Thợ Xây đang trong phòng.");
                     return;
                 }
 
-                // Nếu người hút đang cầm mảnh khác, thả mảnh cũ ra bàn trước
+                // Nếu người chơi mục tiêu đang cầm mảnh ghép, mảnh đó bị rơi xuống bàn
+                Piece droppedPiece = null;
                 for (Piece p : room.game.pieces) {
-                    if (p != targetPiece && p.lockedBy.equalsIgnoreCase(client.account.username) && !p.placed) {
-                        p.lockedBy = "";
-                        p.lockUntil = 0;
-                        broadcast(room, "PIECE_RELEASED", "pieceId", p.id, "id", p.id,
-                                "x", p.x, "y", p.y, "rot", p.rotation);
+                    if (p.lockedBy.equalsIgnoreCase(target.username) && !p.placed) {
+                        droppedPiece = p;
                         break;
                     }
                 }
+                int droppedPieceId = -1;
+                if (droppedPiece != null) {
+                    droppedPiece.lockedBy = "";
+                    droppedPiece.lockUntil = 0;
+                    droppedPieceId = droppedPiece.id;
+                    broadcast(room, "PIECE_RELEASED", "pieceId", droppedPiece.id, "id", droppedPiece.id,
+                            "x", droppedPiece.x, "y", droppedPiece.y, "rot", droppedPiece.rotation);
+                }
 
-                targetPiece.lockedBy = client.account.username;
-                targetPiece.lockUntil = System.currentTimeMillis() + LOCK_TIMEOUT_MS;
-                broadcast(room, "PIECE_LOCKED", "pieceId", targetPiece.id, "id", targetPiece.id,
-                        "by", client.account.username, "x", targetPiece.x, "y", targetPiece.y, "rot", targetPiece.rotation);
                 broadcast(room, "SABOTAGE_TRIGGERED", "item", "MAGNET",
-                        "target", targetMember != null ? targetMember.username : "",
-                        "by", client.account.username, "pieceId", targetPiece.id);
-                if (targetMember != null) {
-                    broadcastPlayerEvent(room, "🧲 " + client.account.username + " đã dùng NAM CHÂM cướp mảnh #" + (targetPiece.id + 1) + " từ tay " + targetMember.username + "!");
+                        "target", target.username,
+                        "by", client.account.username,
+                        "droppedPieceId", droppedPieceId);
+
+                if (droppedPiece != null) {
+                    broadcastPlayerEvent(room, client.account.username + " đã dùng NAM CHÂM hút " + target.username + " về phía mình và làm rơi mảnh #" + (droppedPiece.id + 1) + " xuống bàn!");
                 } else {
-                    broadcastPlayerEvent(room, "🧲 " + client.account.username + " đã dùng NAM CHÂM hút mảnh #" + (targetPiece.id + 1) + " lên tay!");
+                    broadcastPlayerEvent(room, client.account.username + " đã dùng NAM CHÂM hút " + target.username + " về phía mình!");
                 }
             }
             case "FLASHLIGHT" -> {
@@ -987,7 +967,7 @@ public final class PuzzleServer {
                     return;
                 }
                 broadcast(room, "SABOTAGE_TRIGGERED", "item", "FLASHLIGHT", "target", targetUser, "by", client.account.username, "duration", ItemConfig.FLASHLIGHT_DURATION_SEC);
-                broadcastPlayerEvent(room, "🔦 " + client.account.username + " đã rọi ĐÈN PIN làm chói mắt " + targetUser + " trong " + ItemConfig.FLASHLIGHT_DURATION_SEC + " giây!");
+                broadcastPlayerEvent(room, client.account.username + " đã rọi ĐÈN PIN làm chói mắt " + targetUser + " trong " + ItemConfig.FLASHLIGHT_DURATION_SEC + " giây!");
             }
         }
         member.heldItem = "";
@@ -1029,14 +1009,14 @@ public final class PuzzleServer {
 
             List<String> saboteurs = memberList.stream().filter(m -> "SABOTEUR".equals(m.team)).map(m -> m.username).toList();
             List<String> builders = memberList.stream().filter(m -> "BUILDER".equals(m.team)).map(m -> m.username).toList();
-            broadcastPlayerEvent(room, "🎲 Hệ thống đã phân đội ngẫu nhiên: [Thợ Xây: " + String.join(", ", builders) + "] | [Phá Hoại: " + String.join(", ", saboteurs) + "]!");
+            broadcastPlayerEvent(room, "🎲 Chế độ Tranh Đấu đã chia đội: [Thợ Xây: " + String.join(", ", builders) + "] | [Phá Hoại: " + String.join(", ", saboteurs) + "]!");
         } else if ("BATTLE".equalsIgnoreCase(room.gameMode)) {
             PuzzleDefinition def = getPuzzle(room.puzzleId);
             room.targetTimeSeconds = Math.max(def.rows, def.columns) * 60;
             for (Member m : room.members.values()) {
                 m.team = "BATTLE";
             }
-            broadcastPlayerEvent(room, "⚔️ Chế độ Tranh Đấu đã bắt đầu! Đua điểm tự do, ai cao điểm nhất sẽ chiến thắng!");
+            broadcastPlayerEvent(room, "⚔️ Chế độ Hỗn Loạn đã bắt đầu! Đua điểm tự do, ai cao điểm nhất sẽ chiến thắng!");
         } else {
             for (Member m : room.members.values()) {
                 m.team = "BUILDER";
@@ -1286,10 +1266,24 @@ public final class PuzzleServer {
                 .orElse(null);
         String winnerName = winner != null ? winner.username : "";
 
+        boolean isCompetitive = "COMPETITIVE".equalsIgnoreCase(room.gameMode);
+        boolean isBattle = "BATTLE".equalsIgnoreCase(room.gameMode);
+
         for (Member member : room.members.values()) {
             Account account = findAccount(member.username);
             if (account == null) continue;
-            int reward = 50 + member.score * 10;
+            int reward;
+            if (isCompetitive) {
+                // Hoàn thành tranh trước thời hạn: Đội Thợ Xây (BUILDER) thắng (150 xu), Đội Phá Hoại thua (50 xu)
+                boolean isWinnerTeam = "BUILDER".equalsIgnoreCase(member.team);
+                reward = isWinnerTeam ? 150 : 50;
+            } else if (isBattle) {
+                // Chế độ Hỗn loạn: thưởng xu theo số điểm ghi được
+                reward = 50 + member.score * 10;
+            } else {
+                // Chế độ Giải trí: thưởng hoàn thành 50 xu + điểm đóng góp
+                reward = 50 + member.score;
+            }
             puzzleRepo.recordCompletion(account.id, room.puzzleId, reward);
             accountRepo.updateScore(account.id, member.score);
             var accOpt = accountRepo.findById(account.id);
@@ -1300,12 +1294,12 @@ public final class PuzzleServer {
                         "coins", account.coins, "score", member.score);
             }
         }
-        if ("COMPETITIVE".equalsIgnoreCase(room.gameMode)) {
+        if (isCompetitive) {
             broadcast(room, "GAME_OVER", "result", "BUILDERS_WIN", "winnerTeam", "BUILDER");
-            broadcastPlayerEvent(room, "🎉 ĐỘI THỢ XÂY (BUILDERS) ĐÃ CHIẾN THẮNG vì đã hoàn thành tranh trong thời gian quy định!");
-        } else if ("BATTLE".equalsIgnoreCase(room.gameMode)) {
+            broadcastPlayerEvent(room, "ĐỘI THỢ XÂY (BUILDERS) ĐÃ CHIẾN THẮNG CHẾ ĐỘ TRANH ĐẤU vì đã hoàn thành tranh trong thời gian quy định!");
+        } else if (isBattle) {
             broadcast(room, "GAME_OVER", "result", "BATTLE_WIN", "winner", winnerName, "winnerTeam", "BATTLE", "score", winner != null ? winner.score : 0);
-            broadcastPlayerEvent(room, "🏆 " + winnerName + " ĐÃ CHIẾN THẮNG CHẾ ĐỘ TRANH ĐẤU với " + (winner != null ? winner.score : 0) + " điểm!");
+            broadcastPlayerEvent(room, winnerName + " ĐÃ CHIẾN THẮNG CHẾ ĐỘ HỖN LOẠN với " + (winner != null ? winner.score : 0) + " điểm!");
         }
         saveGame(room, "Hoàn thành " + Instant.now(), false);
         broadcastGame(room);
@@ -1500,7 +1494,17 @@ public final class PuzzleServer {
             Account friend = findAccount(friendName);
             if (friend != null) friendRows.add(List.of(friend.username, friend.status, online.containsKey(friend.username.toLowerCase(Locale.ROOT))));
         }
-        client.send("LOBBY_SNAPSHOT", "rooms", Wire.pack(roomRows), "friends", Wire.pack(friendRows), "coins", client.account.coins);
+        long totalScore = 0;
+        int completedCount = 0;
+        if (db != null) {
+            var profileOpt = accountRepo.getProfile(client.account.id);
+            if (profileOpt.isPresent()) {
+                totalScore = profileOpt.get().totalScore();
+            }
+            completedCount = puzzleRepo.getUniquePuzzlesCompletedCount(client.account.id);
+        }
+        client.send("LOBBY_SNAPSHOT", "rooms", Wire.pack(roomRows), "friends", Wire.pack(friendRows),
+                "coins", client.account.coins, "totalScore", totalScore, "completed", completedCount);
     }
 
     private void sendShop(ClientHandler client) {
@@ -1701,8 +1705,26 @@ public final class PuzzleServer {
                                 room.state = "COMPLETE";
                                 room.game.completed = true;
                                 setRoomStatuses(room, "IN_ROOM");
+
+                                // Hết giờ: Đội Phá Hoại (SABOTEUR) thắng (150 xu), Đội Thợ Xây thua (50 xu)
+                                for (Member member : room.members.values()) {
+                                    Account account = findAccount(member.username);
+                                    if (account == null) continue;
+                                    boolean isWinnerTeam = "SABOTEUR".equalsIgnoreCase(member.team);
+                                    int reward = isWinnerTeam ? 150 : 50;
+                                    puzzleRepo.recordCompletion(account.id, room.puzzleId, reward);
+                                    accountRepo.updateScore(account.id, member.score);
+                                    var accOpt = accountRepo.findById(account.id);
+                                    accOpt.ifPresent(a -> account.coins = a.coins());
+                                    ClientHandler client = online.get(member.username.toLowerCase(Locale.ROOT));
+                                    if (client != null) {
+                                        client.send("GAME_COMPLETE", "winner", "Đội Phá Hoại", "bonus", reward,
+                                                "coins", account.coins, "score", member.score);
+                                    }
+                                }
+
                                 broadcast(room, "GAME_OVER", "result", "SABOTEURS_WIN", "winnerTeam", "SABOTEUR");
-                                broadcastPlayerEvent(room, "🏆 HẾT GIỜ! Đội Phá Hoại (Saboteurs) đã giành CHIẾN THẮNG!");
+                                broadcastPlayerEvent(room, "HẾT GIỜ! Đội Phá Hoại (Saboteurs) đã giành CHIẾN THẮNG CHẾ ĐỘ TRANH ĐẤU!");
                             } else if ("BATTLE".equalsIgnoreCase(room.gameMode)) {
                                 room.state = "COMPLETE";
                                 room.game.completed = true;
@@ -1712,8 +1734,24 @@ public final class PuzzleServer {
                                         .orElse(null);
                                 String winnerName = winner != null ? winner.username : "";
                                 int topScore = winner != null ? winner.score : 0;
+
+                                for (Member member : room.members.values()) {
+                                    Account account = findAccount(member.username);
+                                    if (account == null) continue;
+                                    int reward = 50 + member.score * 10;
+                                    puzzleRepo.recordCompletion(account.id, room.puzzleId, reward);
+                                    accountRepo.updateScore(account.id, member.score);
+                                    var accOpt = accountRepo.findById(account.id);
+                                    accOpt.ifPresent(a -> account.coins = a.coins());
+                                    ClientHandler client = online.get(member.username.toLowerCase(Locale.ROOT));
+                                    if (client != null) {
+                                        client.send("GAME_COMPLETE", "winner", winnerName, "bonus", reward,
+                                                "coins", account.coins, "score", member.score);
+                                    }
+                                }
+
                                 broadcast(room, "GAME_OVER", "result", "BATTLE_TIMEOUT", "winner", winnerName, "winnerTeam", "BATTLE", "score", topScore);
-                                broadcastPlayerEvent(room, "⏱️ HẾT GIỜ TRANH ĐẤU! 🏆 " + winnerName + " CHIẾN THẮNG với " + topScore + " điểm!");
+                                broadcastPlayerEvent(room, "HẾT GIỜ HỖN LOẠN! " + winnerName + " CHIẾN THẮNG với " + topScore + " điểm!");
                             } else {
                                 broadcast(room, "GAME_TIMEOUT");
                                 broadcastPlayerEvent(room, "Đã hết thời gian mục tiêu! Chủ phòng có thể chọn tiếp tục hoặc bắt đầu lại.");

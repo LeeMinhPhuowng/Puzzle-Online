@@ -105,7 +105,7 @@ namespace PuzzleOnline.UI
                     // Direct gameplay-scene testing remains controllable without an online match.
                     return false;
                 }
-                return Instance._inGameView.IsModalOrChatOpen || (GameplayHUD.Instance != null && GameplayHUD.Instance.IsChatOpen);
+                return LobbySettingsModalUI.IsOpen || Instance._inGameView.IsModalOrChatOpen || (GameplayHUD.Instance != null && GameplayHUD.Instance.IsChatOpen);
             }
         }
 
@@ -132,12 +132,16 @@ namespace PuzzleOnline.UI
                     }
                 }
             };
-            net.OnPlayerEvent += msg => AddChatMessage("[Hệ thống] " + msg);
             net.OnChatEvent += (from, text) => AddChatMessage(from + ": " + text);
             net.OnEmojiEvent += (from, emoji) => AddChatMessage(from + ": " + emoji);
             net.OnGameCompleteEvent += (winner, bonus) =>
             {
                 _inGameView.SetVictory(winner, bonus);
+                CursorManager.Unlock();
+            };
+            net.OnGameOverResult += (result, winnerTeam, winner, score) =>
+            {
+                _inGameView.SetGameOver(result, winnerTeam, winner, score);
                 CursorManager.Unlock();
             };
             net.OnInviteReceived += (from, roomId, roomName) =>
@@ -232,6 +236,14 @@ namespace PuzzleOnline.UI
 
         public void AddChatMessage(string message)
         {
+            if (string.IsNullOrEmpty(message)) return;
+            // Không ghi lại thông báo hệ thống vào khung chat, chỉ hiện tin nhắn của người chơi
+            if (message.StartsWith("[Hệ thống]", StringComparison.OrdinalIgnoreCase) ||
+                message.StartsWith("SYSTEM:", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             _chatHistory.Add(message);
             if (_chatHistory.Count > 100) _chatHistory.RemoveAt(0);
             _roomView.ResetScroll();
@@ -241,8 +253,20 @@ namespace PuzzleOnline.UI
         public void TogglePauseMenu()
         {
             var overhead = FindFirstObjectByType<PuzzleSystem.Gameplay.PuzzleOverheadViewController>();
-            if (overhead != null && overhead.IsOverheadToggled) overhead.SetOverhead(false);
-            else _inGameView.ShowInGameMenu = !_inGameView.ShowInGameMenu;
+            if (overhead != null && overhead.IsOverheadToggled)
+            {
+                overhead.SetOverhead(false);
+                return;
+            }
+
+            if (LobbySettingsModalUI.IsOpen)
+            {
+                LobbySettingsModalUI.Instance.CloseModal();
+            }
+            else
+            {
+                LobbySettingsModalUI.ShowModal();
+            }
             RefreshCursor();
         }
 
@@ -299,19 +323,16 @@ namespace PuzzleOnline.UI
             }
             else if (net.IsGameActive)
             {
-                _inGameView.DrawPauseMenu(_styles);
+                // Pause Menu is rendered via Canvas UI LobbySettingsModalUI (SettingsView)
             }
 
-            DrawToast();
+            // Tắt hẳn thông báo hệ thống (Toast) trên màn hình
             _inGameView.DrawModals(_styles);
         }
 
         private void DrawToast()
         {
-            if (_toastTimer <= 0f || string.IsNullOrEmpty(_toastMessage)) return;
-            Rect toastRect = new Rect(UIStyles.VirtualWidth * 0.5f - 300, 950, 600, 54);
-            _styles.DrawSolidRect(toastRect, new Color(0.12f, 0.14f, 0.20f, 0.96f));
-            GUI.Label(toastRect, _toastMessage, _styles.BadgeStyle);
+            // Tắt hẳn thông báo hệ thống theo yêu cầu
         }
     }
 }

@@ -108,14 +108,16 @@ namespace PuzzleOnline.Core
         {
             if (string.IsNullOrEmpty(themeId)) return string.Empty;
             var t = GetTheme(themeId);
-            return t != null ? t.displayName : themeId;
+            string name = t != null ? t.displayName : themeId;
+            return name.Replace("SCN_", "", StringComparison.OrdinalIgnoreCase).Trim();
         }
 
         public string GetThemeShortName(string themeId)
         {
             if (string.IsNullOrEmpty(themeId)) return string.Empty;
             var t = GetTheme(themeId);
-            return t != null ? t.shortName : themeId;
+            string name = t != null ? t.shortName : themeId;
+            return name.Replace("SCN_", "", StringComparison.OrdinalIgnoreCase).Trim();
         }
         #endregion
 

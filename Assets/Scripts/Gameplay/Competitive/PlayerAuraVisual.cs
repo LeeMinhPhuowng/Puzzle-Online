@@ -66,12 +66,30 @@ namespace PuzzleOnline.Gameplay.Competitive
             isInitialized = true;
         }
 
+        private void OnDisable()
+        {
+            if (auraRoot != null && auraRoot.activeSelf) auraRoot.SetActive(false);
+        }
+
+        /// <summary>
+        /// Kiểm tra xem phòng chơi có phải chế độ Hỗn Loạn (không có team, đua điểm tự do và bật aura) không.
+        /// Chế độ thường (Classic) và Tranh Đấu chia team (Competitive) sẽ không bật Aura khi nhấc mảnh.
+        /// </summary>
+        public static bool IsWarfieldModeActive()
+        {
+            var net = PuzzleOnline.Network.PuzzleNetworkManager.Instance;
+            if (net == null || net.CurrentRoom == null) return false;
+            string mode = net.CurrentRoom.GameMode?.ToUpperInvariant() ?? "";
+            return mode == "BATTLE" || mode == "MAYHEM" || mode == "WARFIELD";
+        }
+
         public void SetAura(bool active, int points = 1)
         {
             EnsureInitialized();
             if (auraRoot == null) return;
 
-            if (!active)
+            // Chỉ kích hoạt Aura khi nhấc mảnh trong chế độ Warfield / Competitive / Battle
+            if (!active || !IsWarfieldModeActive())
             {
                 if (auraRoot.activeSelf) auraRoot.SetActive(false);
                 return;

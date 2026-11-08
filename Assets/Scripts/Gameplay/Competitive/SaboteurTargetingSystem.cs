@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 using PuzzleOnline.Network;
 using PuzzleOnline.Utility;
@@ -17,15 +17,13 @@ namespace PuzzleOnline.Gameplay.Competitive
                 string item = inventory != null ? inventory.GetSelectedItemType() : "";
                 if (hoveredPlacedPiece != null)
                 {
-                    return item == "MAGNET"
-                        ? $"[CLICK] Hút mảnh ghép #{hoveredPlacedPiece.pieceId + 1} (cố định 5s)"
-                        : $"[CLICK] Cạy mảnh #{hoveredPlacedPiece.pieceId + 1}";
+                    return $"[CLICK] Cạy mảnh #{hoveredPlacedPiece.pieceId + 1}";
                 }
                 if (isHoveringTable) return "[CLICK] Bôi đen và giấu điểm mảnh ghép trên bàn";
                 if (!string.IsNullOrEmpty(hoveredTargetPlayer))
                 {
                     if (item == "SLAP") return $"[CLICK] Tát bay {hoveredTargetPlayer} lên trời!";
-                    if (item == "MAGNET") return $"[CLICK] Hút giật mảnh từ {hoveredTargetPlayer} (cố định 5s)";
+                    if (item == "MAGNET") return $"[CLICK] Hút {hoveredTargetPlayer} về phía mình và làm rơi mảnh!";
                     if (item == "FLASHLIGHT") return $"[CLICK] Chiếu đèn rọi mù: {hoveredTargetPlayer}";
                     return "[CLICK] Tác động lên: " + hoveredTargetPlayer;
                 }
@@ -92,30 +90,14 @@ namespace PuzzleOnline.Gameplay.Competitive
                 isHoveringTable = hit.collider.GetComponentInParent<PuzzleBoard>() != null ||
                     hit.collider.name.IndexOf("table", StringComparison.OrdinalIgnoreCase) >= 0;
             }
-            else if (item == "MAGNET")
-            {
-                // Nam châm có thể nhắm vào mảnh ghép trên bàn HOẶC người chơi khác!
-                var piece = hit.collider.GetComponentInParent<PuzzlePiece>();
-                if (piece != null && !piece.isPlaced)
-                {
-                    hoveredPlacedPiece = piece;
-                    outlinedTarget = piece.gameObject;
-                }
-                else
-                {
-                    var avatar = hit.collider.GetComponentInParent<RemotePlayerAvatar>();
-                    if (avatar != null && IsValidPlayer(avatar.username))
-                    {
-                        hoveredTargetPlayer = avatar.username;
-                        outlinedTarget = avatar.gameObject;
-                    }
-                }
-            }
-            else if (item == "FLASHLIGHT" || item == "SLAP")
+            else if (item == "FLASHLIGHT" || item == "SLAP" || item == "MAGNET")
             {
                 var avatar = hit.collider.GetComponentInParent<RemotePlayerAvatar>();
                 if (avatar != null && IsValidPlayer(avatar.username))
-                { hoveredTargetPlayer = avatar.username; outlinedTarget = avatar.gameObject; }
+                {
+                    hoveredTargetPlayer = avatar.username;
+                    outlinedTarget = avatar.gameObject;
+                }
             }
             selection.Set(outlinedTarget);
             if (Input.GetMouseButtonDown(0))

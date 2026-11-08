@@ -150,7 +150,7 @@ namespace PuzzleOnline.Audio
         public void PlayBGMForScene(string sceneName)
         {
             if (catalog == null) return;
-            if (sceneName == "SCN_Menu" || sceneName == "SCN_MainMenu")
+            if (sceneName == "SCN_Menu" || sceneName == "SCN_MainMenu" || sceneName == "SCN_Room" || sceneName == "SCN_Lobby")
             {
                 StopAmbience();
                 if (catalog.menuMusic != null)
@@ -158,7 +158,7 @@ namespace PuzzleOnline.Audio
                     PlayMusic(catalog.menuMusic, true);
                 }
             }
-            else if (sceneName == "SCN_Nature")
+            else if (sceneName == "SCN_Nature" || sceneName == "SCN_Forest")
             {
                 StopMusic();
                 if (catalog.natureAmbience != null)
@@ -181,6 +181,10 @@ namespace PuzzleOnline.Audio
                 {
                     PlayAmbience(catalog.classroomAmbience);
                 }
+            }
+            else
+            {
+                StopAmbience();
             }
         }
 

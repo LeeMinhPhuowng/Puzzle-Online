@@ -80,6 +80,7 @@ namespace PuzzleOnline.Network
         public string SessionToken => AuthService?.SessionToken ?? string.Empty;
         public int TotalScore => AuthService?.TotalScore ?? 0;
         public int UniquePuzzlesCompleted => AuthService?.UniquePuzzlesCompleted ?? 0;
+        public bool IsConnected => _client != null && _client.IsConnected;
 
         public RoomInfo CurrentRoom => RoomService?.CurrentRoom;
         public bool IsHost => CurrentRoom != null && CurrentRoom.Host == Username;
@@ -143,11 +144,15 @@ namespace PuzzleOnline.Network
         public string GetThemeName(string themeId)
         {
             if (string.IsNullOrEmpty(themeId)) return string.Empty;
+            string result = themeId;
             var st = ShopThemes?.Find(t => string.Equals(t.Id, themeId, StringComparison.OrdinalIgnoreCase));
-            if (st != null && !string.IsNullOrEmpty(st.Name)) return st.Name;
-            var tData = ContentRegistry.Instance?.GetTheme(themeId);
-            if (tData != null && !string.IsNullOrEmpty(tData.displayName)) return tData.displayName;
-            return themeId;
+            if (st != null && !string.IsNullOrEmpty(st.Name)) result = st.Name;
+            else
+            {
+                var tData = ContentRegistry.Instance?.GetTheme(themeId);
+                if (tData != null && !string.IsNullOrEmpty(tData.displayName)) result = tData.displayName;
+            }
+            return result.Replace("SCN_", "", StringComparison.OrdinalIgnoreCase).Trim();
         }
 
         public string GetThemeDescription(string themeId)
@@ -292,6 +297,8 @@ namespace PuzzleOnline.Network
             RoomService.OnReconnectPromptReceived += prompt => OnReconnectPromptReceived?.Invoke(prompt);
             RoomService.OnPasswordRequired += (rid, rname) => OnPasswordRequired?.Invoke(rid, rname);
             RoomService.OnCoinsUpdated += coins => { if (AuthService != null) AuthService.Coins = coins; };
+            RoomService.OnScoreUpdated += score => { if (AuthService != null) AuthService.TotalScore = score; };
+            RoomService.OnCompletedUpdated += completed => { if (AuthService != null) AuthService.UniquePuzzlesCompleted = completed; };
 
             SocialService.OnFriendRequestsUpdated += () => OnFriendRequestsUpdated?.Invoke();
             SocialService.OnFriendRequestReceived += (sender, reqId) => OnFriendRequestReceived?.Invoke(sender, reqId);
@@ -464,7 +471,11 @@ namespace PuzzleOnline.Network
         public void PickupItem(string itemId) => RoomService.PickupItem(itemId);
         public void UseSabotage(string itemType, string targetUser = "", int pieceId = -1) => RoomService.UseSabotage(itemType, targetUser, pieceId);
         public void JoinRoom(string roomId, string password = "") => RoomService.JoinRoom(roomId, password);
-        public void LeaveRoom() => RoomService.LeaveRoom();
+        public void LeaveRoom()
+        {
+            PuzzleOnline.Audio.AudioManager.Instance?.StopAmbience();
+            RoomService.LeaveRoom();
+        }
         public void SetReady(bool ready) => RoomService.SetReady(ready);
         public void SelectPuzzle(string puzzleId) => RoomService.SelectPuzzle(puzzleId);
         public void SelectTheme(string themeId) => RoomService.SelectTheme(themeId);

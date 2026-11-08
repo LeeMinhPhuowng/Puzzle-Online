@@ -232,6 +232,10 @@ namespace FirstPersonCamera
             // Giới hạn góc quay theo phương thẳng đứng tối đa 180 độ (-89.5 đến +89.5)
             minVerticalAngle = Mathf.Clamp(minVerticalAngle, -89.5f, 0f);
             maxVerticalAngle = Mathf.Clamp(maxVerticalAngle, 0f, 89.5f);
+
+            float savedSens = PlayerPrefs.GetFloat("MouseSensitivity", mouseSensitivityX);
+            mouseSensitivityX = savedSens;
+            mouseSensitivityY = savedSens;
         }
 
         private void OnDestroy()
@@ -601,6 +605,16 @@ namespace FirstPersonCamera
         }
 
         // Public methods for external control
+        public float MouseSensitivityX => mouseSensitivityX;
+        public float MouseSensitivityY => mouseSensitivityY;
+
+        public void SetMouseSensitivity(float sensitivity)
+        {
+            SetMouseSensitivity(sensitivity, sensitivity);
+            PlayerPrefs.SetFloat("MouseSensitivity", sensitivity);
+            PlayerPrefs.Save();
+        }
+
         public void SetMouseSensitivity(float sensitivityX, float sensitivityY)
         {
             mouseSensitivityX = sensitivityX;
